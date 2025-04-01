@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,9 +25,6 @@ const (
 // Structure for the Are.na API payload (simplified)
 type ArenaBlock struct {
 	Content string `json:"content"`
-	// You could add "source" if you could get the URL/path of the PDF,
-	// but it's difficult to get it automatically from the clipboard.
-	// Source string `json:"source,omitempty"`
 }
 
 func main() {
@@ -44,7 +42,7 @@ func main() {
 
 	fmt.Println("🚀 Starting clipboard monitor for Are.na...")
 	fmt.Printf("➡️  Sending to channel: %s\n", channelSlug)
-	fmt.Println("📋 Highlight text in SumatraPDF, copy it (Ctrl+C), and it will be sent to Are.na.")
+	fmt.Println("📋 Copy text (Ctrl+C) and it will be sent to Are.na.")
 	fmt.Println("ℹ️  Press Ctrl+C in this terminal to stop.")
 
 	// --- Clipboard Monitoring ---
@@ -76,7 +74,8 @@ func main() {
 
 			// If the content changed and is not empty
 			if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
-				fmt.Printf("✨ New content detected: \"%s...\"\n", currentClipboardContent)
+				fmt.Printf("✨ New content detected: ")
+				fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
@@ -92,10 +91,13 @@ func main() {
 
 // sendToArena sends the text as a block to the specified Are.na channel
 func sendToArena(token, channelSlug, content string) {
+	// Formats the text before sending
+	formattedContent := strings.ReplaceAll(content, "\r\n", " ")
+
 	apiURL := fmt.Sprintf(arenaAPIEndpoint, channelSlug)
 
 	blockData := ArenaBlock{
-		Content: content,
+		Content: formattedContent,
 	}
 
 	jsonData, err := json.Marshal(blockData)
