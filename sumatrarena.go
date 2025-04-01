@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/atotto/clipboard"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -30,8 +31,12 @@ type ArenaBlock struct {
 
 func main() {
 	// --- Configuration ---
-	accessToken := ""
-	channelSlug := ""
+	envErr := godotenv.Load()
+	if envErr != nil {
+		log.Fatal(".env file couldn't be loaded.")
+	}
+	accessToken := os.Getenv("ARENA_PERSONA_ACCESS_TOKEN")
+	channelSlug := os.Getenv("ARENA_CHANNEL_SLUG")
 
 	if accessToken == "" || channelSlug == "" {
 		log.Fatal("Error: You must set the ARENA_ACCESS_TOKEN and ARENA_CHANNEL_SLUG environment variables.")
