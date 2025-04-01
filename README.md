@@ -4,7 +4,7 @@ Simple `Go` console utility that monitors the Clipboard. Whenever you `Ctrl+C` i
 
 ## Things you need to run this:
 
-- `Go`.
+- `Go` (https://go.dev/).
 - An Are.na account.
 - An `ARENA_PERSONAL_ACCESS_TOKEN`.
 - The slug of the channel you want to feed (as of `https://www.are.na/your-profile/{your-channel}`).
