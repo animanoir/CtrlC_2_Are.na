@@ -6,9 +6,13 @@ Simple `Go` console utility that monitors the Clipboard. Whenever you `Ctrl+C` i
 
 - `Go`.
 - An Are.na account.
-- An `ARENA_PERSONAL_ACCESS_TOKEN`
-- The slug of the channel you want to feed (as of `https://www.are.na/your-profile/{your-channel}`)
+- An `ARENA_PERSONAL_ACCESS_TOKEN`.
+- The slug of the channel you want to feed (as of `https://www.are.na/your-profile/{your-channel}`).
 
 You will need to add those inside a new `.env` file.
 
 Inside the folder execute in the console `go run .` and start collecting!
+
+## Use case
+
+I like to read and collect information in my Are.na from books and stuff. I also find tedious to copy/paste it each time. So now this tool automatically does it for me, and I can save important notes outside my main computer.

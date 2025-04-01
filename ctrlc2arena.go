@@ -115,7 +115,7 @@ func sendToArena(token, channelSlug, content string) {
 	// Set Headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "Go CTRL-C-Arena Connector (https://github.com/animanoir)") // Good practice
+	req.Header.Set("User-Agent", "Go CTRL+C2Arena Connector (https://github.com/animanoir)")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
