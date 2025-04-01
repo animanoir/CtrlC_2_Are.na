@@ -1,4 +1,4 @@
-module ctrl2arena
+module ctrlc2arena
 
 go 1.24.1
 
