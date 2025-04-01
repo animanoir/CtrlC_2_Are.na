@@ -35,11 +35,11 @@ func main() {
 	if envErr != nil {
 		log.Fatal(".env file couldn't be loaded.")
 	}
-	accessToken := os.Getenv("ARENA_PERSONA_ACCESS_TOKEN")
+	accessToken := os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN")
 	channelSlug := os.Getenv("ARENA_CHANNEL_SLUG")
 
 	if accessToken == "" || channelSlug == "" {
-		log.Fatal("Error: You must set the ARENA_ACCESS_TOKEN and ARENA_CHANNEL_SLUG environment variables.")
+		log.Fatal("Error: You must set the ARENA_PERSONAL_ACCESS_TOKEN and ARENA_CHANNEL_SLUG environment variables.")
 	}
 
 	fmt.Println("🚀 Starting clipboard monitor for Are.na...")
@@ -76,7 +76,7 @@ func main() {
 
 			// If the content changed and is not empty
 			if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
-				fmt.Printf("✨ New content detected: \"%s...\"\n", truncate(currentClipboardContent, 50))
+				fmt.Printf("✨ New content detected: \"%s...\"\n", currentClipboardContent)
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
@@ -113,7 +113,7 @@ func sendToArena(token, channelSlug, content string) {
 	// Set Headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "Go SumatraPDF-Arena Connector (https://github.com/your-repo-maybe)") // Good practice
+	req.Header.Set("User-Agent", "Go CTRL-C-Arena Connector (https://github.com/animanoir)") // Good practice
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -133,18 +133,6 @@ func sendToArena(token, channelSlug, content string) {
 		}
 		log.Printf("❌ Error sending to Are.na. Status: %d, Response: %s\n", resp.StatusCode, string(bodyBytes))
 	}
-}
-
-// Helper function to truncate text for logs
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	// Try to truncate at a space if possible near the limit
-	if idx := bytes.LastIndexByte([]byte(s[:maxLen]), ' '); idx != -1 && idx > maxLen/2 {
-		return s[:idx] + "..."
-	}
-	return s[:maxLen-3] + "..."
 }
 
 // ReadAll helper (if using Go < 1.16, use ioutil.ReadAll)
