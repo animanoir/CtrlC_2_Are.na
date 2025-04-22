@@ -24,6 +24,7 @@ const (
 
 // Structure for the Are.na API payload (simplified)
 type ArenaBlock struct {
+	Title   string `json:"title"`
 	Content string `json:"content"`
 }
 
@@ -79,7 +80,7 @@ func main() {
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
-				go sendToArena(accessToken, channelSlug, currentClipboardContent)
+				go sendToArena(accessToken, channelSlug, currentClipboardContent, "This Is Not a Game: Immersive Aesthethics and Collective Play")
 			}
 
 		case <-sigChan:
@@ -90,7 +91,7 @@ func main() {
 }
 
 // sendToArena sends the text as a block to the specified Are.na channel
-func sendToArena(token, channelSlug, content string) {
+func sendToArena(token, channelSlug, content string, blockTitle string) {
 	// Formats the text before sending
 	formattedContent := strings.ReplaceAll(content, "\r\n", " ")
 
@@ -98,6 +99,7 @@ func sendToArena(token, channelSlug, content string) {
 
 	blockData := ArenaBlock{
 		Content: formattedContent,
+		Title:   blockTitle,
 	}
 
 	jsonData, err := json.Marshal(blockData)
@@ -131,7 +133,7 @@ func sendToArena(token, channelSlug, content string) {
 		// Read response body for more error details
 		var bodyBytes []byte
 		if resp.Body != nil {
-			bodyBytes, _ = ReadAll(resp.Body) // Use io.ReadAll in Go 1.16+ or ioutil.ReadAll
+			bodyBytes, _ = ReadAll(resp.Body)
 		}
 		log.Printf("❌ Error sending to Are.na. Status: %d, Response: %s\n", resp.StatusCode, string(bodyBytes))
 	}
