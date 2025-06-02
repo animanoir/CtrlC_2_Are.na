@@ -65,6 +65,8 @@ type ArenaBlock struct {
 	Content string `json:"content"`
 }
 
+var isMonitoring bool = false
+
 func main() {
 
 	var userArenaToken string
@@ -101,6 +103,9 @@ func main() {
 			log.Println("Form submitted!")
 			log.Println("Are.na token: ", arenaTokenEntry.Text)
 			log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
+			if userArenaToken != "" && userSlugChannel != "" {
+				go clipboardMonitoring(userArenaToken, userSlugChannel)
+			}
 		},
 	}
 
@@ -126,18 +131,23 @@ func main() {
 		form,
 	)
 
+	if isMonitoring {
+		form.Append("hola", title)
+	}
 	paddedContent := container.NewPadded(content)
 
 	w.SetContent(paddedContent)
 
-	if userArenaToken != "" && userSlugChannel != "" {
-		go clipboardMonitoring(userArenaToken, userSlugChannel)
-	}
 	w.ShowAndRun()
 }
 
 func clipboardMonitoring(_accessToken string, _channelSlug string) {
 	fmt.Print("ClipboardMonitoring exexuting...")
+	isMonitoring = true
+	ch := make(chan bool)
+	if isMonitoring {
+		ch <- isMonitoring
+	}
 	var lastClipboardContent string
 	var err error
 
