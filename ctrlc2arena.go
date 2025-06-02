@@ -13,6 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/widget"
 	"github.com/atotto/clipboard"
 	"github.com/joho/godotenv"
 )
@@ -28,24 +31,49 @@ type ArenaBlock struct {
 	Content string `json:"content"`
 }
 
-func main() {
+func configuration(_accessToken string, _channelSlug string) {
 	// --- Configuration ---
 	envErr := godotenv.Load()
 	if envErr != nil {
 		log.Fatal(".env file couldn't be loaded.")
 	}
-	accessToken := os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN")
-	channelSlug := os.Getenv("ARENA_CHANNEL_SLUG")
+	//accessToken := os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN")
+	//channelSlug := os.Getenv("ARENA_CHANNEL_SLUG")
 
-	if accessToken == "" || channelSlug == "" {
+	if _accessToken == "" || _channelSlug == "" {
 		log.Fatal("Error: You must set the ARENA_PERSONAL_ACCESS_TOKEN and ARENA_CHANNEL_SLUG environment variables.")
 	}
 
 	fmt.Println("🚀 Starting clipboard monitor for Are.na...")
-	fmt.Printf("➡️  Sending to channel: %s\n", channelSlug)
+	fmt.Printf("➡️  Sending to channel: %s\n", _channelSlug)
 	fmt.Println("📋 Copy text (Ctrl+C) and it will be sent to Are.na.")
 	fmt.Println("ℹ️  Press Ctrl+C in this terminal to stop.")
+}
 
+func main() {
+	// --GUI Stuff --
+	a := app.New()
+	w := a.NewWindow("CTRL+C to Are.na Connector")
+	w.SetContent(widget.NewLabel("Monitoring clipboard... Press Ctrl+C to stop."))
+	w.Resize(fyne.NewSize(500, 600))
+	w.CenterOnScreen()
+
+	arenaTokenEntry := widget.NewEntry()
+	arenaSlugEntry := widget.NewEntry()
+
+	form := &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Are.na token:", Widget: arenaTokenEntry},
+			{Text: "Channel slug:", Widget: arenaSlugEntry}},
+		OnSubmit: func() {
+			log.Println("Form submitted: ", arenaTokenEntry.Text)
+		},
+	}
+	w.SetContent(form)
+	w.ShowAndRun()
+
+	// ---
+	configuration(os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN"), os.Getenv("dddddd"))
 	// --- Clipboard Monitoring ---
 	var lastClipboardContent string
 	var err error
@@ -80,7 +108,7 @@ func main() {
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
-				go sendToArena(accessToken, channelSlug, currentClipboardContent, "This Is Not a Game: Immersive Aesthethics and Collective Play")
+				go sendToArena(os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN"), os.Getenv("dddddd"), "This Is Not a Game: Immersive Aesthethics and Collective Play", "wewe")
 			}
 
 		case <-sigChan:
