@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"io"
 	"log"
 	"net/http"
@@ -15,10 +16,44 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/atotto/clipboard"
 	"github.com/joho/godotenv"
 )
+
+// Are.na theme
+type arenaTheme struct{}
+
+var _ fyne.Theme = (*arenaTheme)(nil)
+
+func (m *arenaTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameBackground {
+		return color.Black
+	}
+	return theme.DarkTheme().Color(name, variant)
+}
+
+func (m *arenaTheme) Font(style fyne.TextStyle) fyne.Resource {
+	return theme.DarkTheme().Font(style)
+}
+
+func (m *arenaTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+	return theme.DarkTheme().Icon(name)
+}
+
+func (m *arenaTheme) Size(name fyne.ThemeSizeName) float32 {
+	// Reduce el espaciado entre elementos
+	switch name {
+	case theme.SizeNamePadding:
+		return 6
+	case theme.SizeNameInnerPadding:
+		return 5
+	}
+	return theme.DarkTheme().Size(name)
+}
 
 const (
 	arenaAPIEndpoint = "https://api.are.na/v2/channels/%s/blocks" // %s will be replaced by the channelSlug
@@ -29,6 +64,57 @@ const (
 type ArenaBlock struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
+}
+
+func main() {
+
+	var userArenaToken string
+	var userSlugChannel string
+
+	// --GUI Stuff --
+	a := app.New()
+	a.Settings().SetTheme(&arenaTheme{})
+	w := a.NewWindow("CTRL+C to Are.na Connector")
+
+	w.Resize(fyne.NewSize(500, 600))
+	w.CenterOnScreen()
+
+	grayColor := color.NRGBA{R: 178, G: 178, B: 178, A: 255}
+	whiteColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	title := canvas.NewText("Ctrl+C to Are.na", whiteColor)
+	title.TextSize = 42
+	infoText := canvas.NewText("This lil' software will monitor and send whatever you copy (CTRL+C) into a specified channel from your Are.na account.", grayColor)
+	arenaTokenEntry := widget.NewEntry()
+	arenaSlugEntry := widget.NewEntry()
+
+	form := &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Are.na token:", Widget: arenaTokenEntry},
+			{Text: "Channel slug:", Widget: arenaSlugEntry}},
+		OnSubmit: func() {
+			userArenaToken = arenaTokenEntry.Text
+			userSlugChannel = arenaSlugEntry.Text
+			log.Println("Form submitted!")
+			log.Println("Are.na token: ", arenaTokenEntry.Text)
+			log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
+		},
+	}
+	content := container.NewVBox(
+		title,
+		widget.NewSeparator(), // Separador visual sutil
+		infoText,
+		widget.NewSeparator(),
+		form,
+	)
+
+	paddedContent := container.NewPadded(content)
+
+	w.SetContent(paddedContent)
+
+	w.ShowAndRun()
+
+	configuration(userArenaToken, userSlugChannel)
+	clipboardMonitoring(userArenaToken, userSlugChannel)
 }
 
 func configuration(_accessToken string, _channelSlug string) {
@@ -49,31 +135,7 @@ func configuration(_accessToken string, _channelSlug string) {
 	fmt.Println("📋 Copy text (Ctrl+C) and it will be sent to Are.na.")
 	fmt.Println("ℹ️  Press Ctrl+C in this terminal to stop.")
 }
-
-func main() {
-	// --GUI Stuff --
-	a := app.New()
-	w := a.NewWindow("CTRL+C to Are.na Connector")
-	w.SetContent(widget.NewLabel("Monitoring clipboard... Press Ctrl+C to stop."))
-	w.Resize(fyne.NewSize(500, 600))
-	w.CenterOnScreen()
-
-	arenaTokenEntry := widget.NewEntry()
-	arenaSlugEntry := widget.NewEntry()
-
-	form := &widget.Form{
-		Items: []*widget.FormItem{
-			{Text: "Are.na token:", Widget: arenaTokenEntry},
-			{Text: "Channel slug:", Widget: arenaSlugEntry}},
-		OnSubmit: func() {
-			log.Println("Form submitted: ", arenaTokenEntry.Text)
-		},
-	}
-	w.SetContent(form)
-	w.ShowAndRun()
-
-	// ---
-	configuration(os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN"), os.Getenv("dddddd"))
+func clipboardMonitoring(_accessToken string, _channelSlug string) {
 	// --- Clipboard Monitoring ---
 	var lastClipboardContent string
 	var err error
@@ -108,7 +170,7 @@ func main() {
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
-				go sendToArena(os.Getenv("ARENA_PERSONAL_ACCESS_TOKEN"), os.Getenv("dddddd"), "This Is Not a Game: Immersive Aesthethics and Collective Play", "wewe")
+				go sendToArena(_accessToken, _channelSlug, "This Is Not a Game: Immersive Aesthethics and Collective Play", "wewe")
 			}
 
 		case <-sigChan:
