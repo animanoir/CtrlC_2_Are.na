@@ -80,7 +80,7 @@ func main() {
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
-				go sendToArena(accessToken, channelSlug, currentClipboardContent, "This Is Not a Game: Immersive Aesthethics and Collective Play")
+				go sendToArena(accessToken, channelSlug, currentClipboardContent, "Chapter Four: Being, Language and Thought")
 			}
 
 		case <-sigChan:
