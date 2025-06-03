@@ -107,21 +107,22 @@ func main() {
 			{Text: "Are.na token:", Widget: arenaTokenEntry},
 			{Text: "Channel slug:", Widget: arenaSlugEntry}},
 		SubmitText: "Connect",
-		OnSubmit: func() {
-			userArenaToken = arenaTokenEntry.Text
-			userSlugChannel = arenaSlugEntry.Text
-			log.Println("Are.na token: ", arenaTokenEntry.Text)
-			log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
-			if userArenaToken != "" && userSlugChannel != "" {
-				go clipboardMonitoring(userArenaToken, userSlugChannel)
+	}
+	form.OnSubmit = func() {
+		userArenaToken = arenaTokenEntry.Text
+		userSlugChannel = arenaSlugEntry.Text
+		log.Println("Are.na token: ", arenaTokenEntry.Text)
+		log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
+		if userArenaToken != "" && userSlugChannel != "" {
+			go clipboardMonitoring(userArenaToken, userSlugChannel)
 
-				statusText.Text = "The software is now monitoring your clipboard—be careful..."
-				statusText.Color = theme.WarningColor()
-				statusText.Refresh()
-				statusIcon.SetResource(theme.MediaVideoIcon())
-				statusBox.Show()
-			}
-		},
+			statusText.Text = "The software is now monitoring your clipboard—be careful..."
+			statusText.Color = theme.WarningColor()
+			statusText.Refresh()
+			statusIcon.SetResource(theme.MediaVideoIcon())
+			statusBox.Show()
+			form.Disable()
+		}
 	}
 
 	arenaTokenEntry.Validator = func(text string) error {
