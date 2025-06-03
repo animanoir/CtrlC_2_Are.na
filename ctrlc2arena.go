@@ -89,12 +89,19 @@ func main() {
 	statusIcon := widget.NewIcon(nil)
 	statusText := canvas.NewText("", whiteColor)
 	statusText.TextSize = 14
-	statusBox := container.NewHBox(statusIcon, statusText)
+	stopButton := widget.NewButtonWithIcon("Stop monitoring", theme.MediaStopIcon(), func() {
+		log.Print("stop button pressed")
+		isMonitoring = false
+	})
+	stopButton.Hide()
+	statusBox := container.NewHBox(statusIcon, statusText, stopButton)
 	statusBox.Hide()
+	stopButton.Hide()
 	title.TextSize = 42
 	infoText := canvas.NewText("This lil' software will monitor and send whatever TEXT you copy (CTRL+C) into a specified channel in your Are.na account.", grayColor)
 	arenaTokenEntry := widget.NewEntry()
 	arenaSlugEntry := widget.NewEntry()
+	blockTitle := widget.NewEntry()
 	parsedURL, err := url.Parse("https://dev.are.na/")
 	if err != nil {
 		return
@@ -105,7 +112,8 @@ func main() {
 	form := &widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Are.na token:", Widget: arenaTokenEntry},
-			{Text: "Channel slug:", Widget: arenaSlugEntry}},
+			{Text: "Channel slug:", Widget: arenaSlugEntry},
+			{Text: "Block title:", Widget: blockTitle}},
 		SubmitText: "Connect",
 	}
 	form.OnSubmit = func() {
@@ -114,6 +122,7 @@ func main() {
 		log.Println("Are.na token: ", arenaTokenEntry.Text)
 		log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
 		if userArenaToken != "" && userSlugChannel != "" {
+			isMonitoring = true
 			go clipboardMonitoring(userArenaToken, userSlugChannel)
 
 			statusText.Text = "The software is now monitoring your clipboard—be careful..."
@@ -122,6 +131,7 @@ func main() {
 			statusIcon.SetResource(theme.MediaVideoIcon())
 			statusBox.Show()
 			form.Disable()
+			stopButton.Show()
 		}
 	}
 
@@ -156,50 +166,56 @@ func main() {
 	w.ShowAndRun()
 }
 
-func clipboardMonitoring(_accessToken string, _channelSlug string) {
-	fmt.Print("clipboardMonitoring func executing...")
-	var lastClipboardContent string
-	var err error
+func clipboardMonitoring(_accessToken string, _channelSlug string, _blocklTitle string) {
+	if isMonitoring {
+		fmt.Print("clipboardMonitoring func executing...")
+		var lastClipboardContent string
+		var err error
 
-	// Initialize with the current content to avoid sending at startup
-	lastClipboardContent, err = clipboard.ReadAll()
-	if err != nil {
-		log.Printf("Warning: Could not read the initial clipboard content: %v\n", err)
-	}
-
-	// Channel for handling interrupt signal (Ctrl+C)
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	ticker := time.NewTicker(checkInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			currentClipboardContent, err := clipboard.ReadAll()
-			if err != nil {
-				// Ignore temporary read errors, but log if useful
-				// log.Printf("Error reading clipboard: %v\n", err)
-				continue
-			}
-
-			// If the content changed and is not empty
-			if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
-				fmt.Printf("✨ New content detected: ")
-				fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
-				lastClipboardContent = currentClipboardContent // Update the last content
-
-				// Send to Are.na in a goroutine to avoid blocking the check
-				go sendToArena(_accessToken, _channelSlug, lastClipboardContent)
-			}
-
-		case <-sigChan:
-			fmt.Println("\n🛑 Stopping the monitor...")
-			isMonitoring = false
-			return // Exit the program
+		// Initialize with the current content to avoid sending at startup
+		lastClipboardContent, err = clipboard.ReadAll()
+		if err != nil {
+			log.Printf("Warning: Could not read the initial clipboard content: %v\n", err)
 		}
+
+		// Channel for handling interrupt signal (Ctrl+C)
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+		ticker := time.NewTicker(checkInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				currentClipboardContent, err := clipboard.ReadAll()
+				if err != nil {
+					// Ignore temporary read errors, but log if useful
+					// log.Printf("Error reading clipboard: %v\n", err)
+					continue
+				}
+
+				// If the content changed and is not empty
+				if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
+					fmt.Printf("✨ New content detected: ")
+					fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
+					lastClipboardContent = currentClipboardContent // Update the last content
+
+					// Send to Are.na in a goroutine to avoid blocking the check
+					go sendToArena(_accessToken, _channelSlug, lastClipboardContent)
+				}
+
+			case <-sigChan:
+				fmt.Println("\n🛑 Stopping the monitor...")
+				isMonitoring = false
+				return // Exit the program
+			}
+		}
+	} else {
+		log.Print("clipboard function not executing.")
+		return
 	}
+
 }
 
 // sendToArena sends the text as a block to the specified Are.na channel
