@@ -72,16 +72,25 @@ func main() {
 	var userArenaToken string
 	var userSlugChannel string
 
-	// --GUI Stuff --
+	// -- GUI Stuff --
 	a := app.New()
 	a.Settings().SetTheme(&arenaTheme{})
 	w := a.NewWindow("CTRL+C to Are.na")
-	w.Resize(fyne.NewSize(100, 500))
+	w.Resize(fyne.NewSize(600, 500))
 	w.CenterOnScreen()
+
+	arenaLogoImg := canvas.NewImageFromFile("arena-logo-white.png")
+	arenaLogoImg.FillMode = canvas.ImageFillContain
+	arenaLogoImg.SetMinSize(fyne.NewSize(70, 50))
 
 	grayColor := color.NRGBA{R: 178, G: 178, B: 178, A: 255}
 	whiteColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 	title := canvas.NewText("Ctrl+C to Are.na", whiteColor)
+	statusIcon := widget.NewIcon(nil)
+	statusText := canvas.NewText("", whiteColor)
+	statusText.TextSize = 14
+	statusBox := container.NewHBox(statusIcon, statusText)
+	statusBox.Hide()
 	title.TextSize = 42
 	infoText := canvas.NewText("This lil' software will monitor and send whatever TEXT you copy (CTRL+C) into a specified channel in your Are.na account.", grayColor)
 	arenaTokenEntry := widget.NewEntry()
@@ -90,6 +99,7 @@ func main() {
 	if err != nil {
 		return
 	}
+
 	arenaApiUrl := widget.NewHyperlink("Click here to get your Are.na API token.", parsedURL)
 
 	form := &widget.Form{
@@ -100,11 +110,16 @@ func main() {
 		OnSubmit: func() {
 			userArenaToken = arenaTokenEntry.Text
 			userSlugChannel = arenaSlugEntry.Text
-			log.Println("Form submitted!")
 			log.Println("Are.na token: ", arenaTokenEntry.Text)
 			log.Println("Are.na slug channel: ", arenaSlugEntry.Text)
 			if userArenaToken != "" && userSlugChannel != "" {
 				go clipboardMonitoring(userArenaToken, userSlugChannel)
+
+				statusText.Text = "The software is now monitoring your clipboard—be careful..."
+				statusText.Color = theme.WarningColor()
+				statusText.Refresh()
+				statusIcon.SetResource(theme.MediaVideoIcon())
+				statusBox.Show()
 			}
 		},
 	}
@@ -122,18 +137,17 @@ func main() {
 		}
 		return nil
 	}
+	layoutHeader := container.NewHBox(title, arenaLogoImg)
 	content := container.NewVBox(
-		title,
+		layoutHeader,
 		widget.NewSeparator(),
 		infoText,
 		widget.NewSeparator(),
 		arenaApiUrl,
 		form,
+		statusBox,
 	)
 
-	if isMonitoring {
-		form.Append("hola", title)
-	}
 	paddedContent := container.NewPadded(content)
 
 	w.SetContent(paddedContent)
@@ -142,12 +156,7 @@ func main() {
 }
 
 func clipboardMonitoring(_accessToken string, _channelSlug string) {
-	fmt.Print("ClipboardMonitoring exexuting...")
-	isMonitoring = true
-	ch := make(chan bool)
-	if isMonitoring {
-		ch <- isMonitoring
-	}
+	fmt.Print("clipboardMonitoring func executing...")
 	var lastClipboardContent string
 	var err error
 
@@ -186,6 +195,7 @@ func clipboardMonitoring(_accessToken string, _channelSlug string) {
 
 		case <-sigChan:
 			fmt.Println("\n🛑 Stopping the monitor...")
+			isMonitoring = false
 			return // Exit the program
 		}
 	}
