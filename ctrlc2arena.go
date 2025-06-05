@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"image/color"
@@ -23,6 +24,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/atotto/clipboard"
 )
+
+// -- This magically will embed the image into the final application.
+//
+//go:embed arena-logo-white.png
+var arenaLogoBytes []byte
 
 // Are.na theme
 type arenaTheme struct{}
@@ -73,6 +79,7 @@ var arenaApiStatus chan string
 
 // Main function
 func main() {
+
 	stopMonitoringChan = make(chan bool, 1)
 	clipboardContentChan = make(chan string, 10)
 	stopGUIChan = make(chan bool, 1)
@@ -96,7 +103,9 @@ func runGui() {
 	w.CenterOnScreen()
 
 	// Images configuration
-	arenaLogoImg := canvas.NewImageFromFile("arena-logo-white.png")
+	// Convert arena logo bytes into a Fyne resource
+	resource := fyne.NewStaticResource("arena-logo-white.png", arenaLogoBytes)
+	arenaLogoImg := canvas.NewImageFromResource(resource)
 	arenaLogoImg.FillMode = canvas.ImageFillContain
 	arenaLogoImg.SetMinSize(fyne.NewSize(70, 50))
 
