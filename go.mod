@@ -5,7 +5,6 @@ go 1.24.1
 require (
 	fyne.io/fyne/v2 v2.6.1
 	github.com/atotto/clipboard v0.1.4
-	github.com/joho/godotenv v1.5.1
 )
 
 require (

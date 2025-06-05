@@ -91,7 +91,7 @@ func runGui() {
 	a := app.New()
 	a.Settings().SetTheme(&arenaTheme{})
 	w := a.NewWindow("CTRL+C to Are.na")
-	w.Resize(fyne.NewSize(600, 500))
+	w.Resize(fyne.NewSize(600, 300))
 	w.CenterOnScreen()
 
 	// Images configuration
@@ -110,11 +110,11 @@ func runGui() {
 	title.TextSize = 42
 	infoText := canvas.NewText("This lil' software will monitor and send whatever TEXT you copy (CTRL+C) into a specified channel in your Are.na account.", grayColor)
 
-	copiedTextInfo := canvas.NewText("Last copied text: ", grayColor)
-	copiedText := widget.NewRichText()
-	copiedText.Wrapping = fyne.TextWrapWord
-	copiedTextBox := container.NewHBox(copiedTextInfo, copiedText)
-	copiedTextBox.Hide()
+	// copiedTextInfo := canvas.NewText("Last copied text: ", grayColor)
+	// copiedText := widget.NewRichText()
+	// copiedText.Wrapping = fyne.TextWrapWord
+	// copiedTextBox := container.NewHBox(copiedTextInfo, copiedText)
+	// copiedTextBox.Hide()
 
 	// Form entries
 	arenaTokenEntry := widget.NewPasswordEntry()
@@ -158,8 +158,8 @@ func runGui() {
 	statusIcon := widget.NewIcon(nil)
 	statusText := canvas.NewText("", whiteColor)
 	statusText.TextSize = 14
-
-	arenaStatusText := canvas.NewText("Arena status", whiteColor)
+	arenaStatusString := "⏳ Waiting"
+	arenaStatusText := canvas.NewText(arenaStatusString, whiteColor)
 	arenaStatusText.Hide()
 
 	statusBox = container.NewHBox(statusIcon, statusText, stopButton)
@@ -174,8 +174,11 @@ func runGui() {
 		userArenaToken = arenaTokenEntry.Text
 		userSlugChannel = arenaSlugEntry.Text
 		blockTitle = blockTitleEntry.Text
-		if userArenaToken != "" && userSlugChannel != "" && blockTitle != "" {
+		if userArenaToken != "" && userSlugChannel != "" {
 			isMonitoring = true
+			arenaTokenEntry.Disable()
+			blockTitleEntry.Disable()
+			arenaSlugEntry.Disable()
 
 			// Clear any previous stop signals
 			select {
@@ -194,23 +197,29 @@ func runGui() {
 			go func() {
 				// Show copiedText on main thread
 				fyne.DoAndWait(func() {
-					copiedTextBox.Show()
+					// copiedTextBox.Show()
+					arenaStatusText.Show()
 				})
 
 				for {
 					select {
-					case content := <-clipboardContentChan:
-						// Update GUI on main thread using fyne.Do()
-						fyne.Do(func() {
-							copiedText.ParseMarkdown(strings.ReplaceAll(content, "\r\n", ""))
-							copiedText.Refresh()
-							arenaStatusText.Show()
-						})
+					// case content := <-clipboardContentChan:
+					// 	// Update GUI on main thread using fyne.Do()
+					// 	fyne.Do(func() {
+					// 		copiedText.ParseMarkdown(strings.ReplaceAll(content, "\r\n", ""))
+					// 		copiedText.Refresh()
+					// 		arenaStatusText.Show()
+					// 	})
 
 					case <-stopGUIChan:
 						// Hide text on main thread
 						fyne.Do(func() {
-							copiedTextBox.Hide()
+							// copiedTextBox.Hide()
+							arenaStatusText.Text = arenaStatusString
+							arenaStatusText.Hide()
+							arenaTokenEntry.Enable()
+							blockTitleEntry.Enable()
+							arenaSlugEntry.Enable()
 						})
 						return // Exit the goroutine
 
@@ -218,7 +227,9 @@ func runGui() {
 						// Non-blocking check if monitoring stopped
 						if !isMonitoring {
 							fyne.Do(func() {
-								copiedTextBox.Hide()
+								// copiedTextBox.Hide()
+								arenaStatusText.Text = arenaStatusString
+								arenaStatusText.Hide()
 							})
 							return
 						}
@@ -243,18 +254,21 @@ func runGui() {
 		}
 		return nil
 	}
-	blockTitleEntry.Validator = func(text string) error {
-		if len(strings.TrimSpace(text)) == 0 {
-			return fmt.Errorf("block title entry cannot be empty")
-		}
-		return nil
-	}
+	// For now, make block title optional.
+	// blockTitleEntry.Validator = func(text string) error {
+	// 	if len(strings.TrimSpace(text)) == 0 {
+	// 		return fmt.Errorf("block title entry cannot be empty")
+	// 	}
+	// 	return nil
+	// }
 
 	// Arena status text
 	go func() {
 		for status := range arenaApiStatus {
-			arenaStatusText.Text = status
-			arenaStatusText.Refresh()
+			fyne.Do(func() {
+				arenaStatusText.Text = status
+				arenaStatusText.Refresh()
+			})
 		}
 	}()
 
@@ -268,10 +282,11 @@ func runGui() {
 		arenaApiUrl,
 		form,
 		statusBox,
-		copiedTextBox,
+		// copiedTextBox,
 		arenaStatusText,
 	)
 
+	// Adds padding to the container
 	paddedContent := container.NewPadded(content)
 
 	// Final Fyne functions to make this shyte work
@@ -311,7 +326,8 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 			// If the content changed and is not empty
 			if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
 				fmt.Printf("✨ New content detected: ")
-				fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
+				arenaApiStatus <- "✨ New content detected! Sending..."
+				// fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
 				clipboardContentChan <- currentClipboardContent
 				lastClipboardContent = currentClipboardContent // Update the last content
 
@@ -334,8 +350,12 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 	apiURL := fmt.Sprintf(arenaAPIEndpoint, channelSlug)
 
 	blockData := ArenaBlock{
-		Title:   blockTitle,
 		Content: formattedContent,
+	}
+
+	// Checks if block title has something. If so, adds it to the blockData to send to Are.na's API.
+	if blockTitle != "" {
+		blockData.Title = blockTitle
 	}
 
 	jsonData, err := json.Marshal(blockData)
@@ -365,15 +385,16 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		arenaApiStatus <- "✅ Sent to Are.na!"
-		fmt.Printf("✅ Sent to Are.na! (Status: %d)\n", resp.StatusCode)
+		arenaApiStatus <- "✅ Copied text successfully sent to your Are.na channel!"
+		// fmt.Printf("✅ Sent to Are.na! (Status: %d)\n", resp.StatusCode)
 	} else {
 		// Read response body for more error details
-		var bodyBytes []byte
-		if resp.Body != nil {
-			bodyBytes, _ = ReadAll(resp.Body)
-		}
-		log.Printf("❌ Error sending to Are.na. Status: %d, Response: %s\n", resp.StatusCode, string(bodyBytes))
+		// var bodyBytes []byte
+		// if resp.Body != nil {
+		// 	bodyBytes, _ = ReadAll(resp.Body)
+		// }
+		arenaApiStatus <- fmt.Sprintf("❌ There was an error sending to Are.na (re-check your token/slug). Status: %d", resp.StatusCode)
+		// log.Printf("❌ Error sending to Are.na. Status: %d, Response: %s\n", resp.StatusCode, string(bodyBytes))
 	}
 }
 
