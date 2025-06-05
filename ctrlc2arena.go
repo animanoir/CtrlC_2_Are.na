@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image/color"
 	"io"
@@ -69,12 +68,215 @@ type ArenaBlock struct {
 var isMonitoring bool = false
 var stopMonitoringChan chan bool
 var clipboardContentChan chan string
+var stopGUIChan chan bool
+var arenaApiStatus chan string
 
 // Main function
 func main() {
 	stopMonitoringChan = make(chan bool, 1)
 	clipboardContentChan = make(chan string, 10)
+	stopGUIChan = make(chan bool, 1)
+	arenaApiStatus = make(chan string, 1)
 	runGui()
+}
+
+func runGui() {
+	var userArenaToken string
+	var userSlugChannel string
+	var blockTitle string
+	var statusBox *fyne.Container
+	var stopButton *widget.Button
+
+	// App and window settings
+	a := app.New()
+	a.Settings().SetTheme(&arenaTheme{})
+	w := a.NewWindow("CTRL+C to Are.na")
+	w.Resize(fyne.NewSize(600, 500))
+	w.CenterOnScreen()
+
+	// Images configuration
+	arenaLogoImg := canvas.NewImageFromFile("arena-logo-white.png")
+	arenaLogoImg.FillMode = canvas.ImageFillContain
+	arenaLogoImg.SetMinSize(fyne.NewSize(70, 50))
+
+	// Buttons, form and styles configuration
+
+	// Colors
+	grayColor := color.NRGBA{R: 178, G: 178, B: 178, A: 255}
+	whiteColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+
+	// Title and info text
+	title := canvas.NewText("Ctrl+C to Are.na", whiteColor)
+	title.TextSize = 42
+	infoText := canvas.NewText("This lil' software will monitor and send whatever TEXT you copy (CTRL+C) into a specified channel in your Are.na account.", grayColor)
+
+	copiedTextInfo := canvas.NewText("Last copied text: ", grayColor)
+	copiedText := widget.NewRichText()
+	copiedText.Wrapping = fyne.TextWrapWord
+	copiedTextBox := container.NewHBox(copiedTextInfo, copiedText)
+	copiedTextBox.Hide()
+
+	// Form entries
+	arenaTokenEntry := widget.NewPasswordEntry()
+	arenaSlugEntry := widget.NewEntry()
+	blockTitleEntry := widget.NewEntry()
+
+	// External links
+	parsedURL, err := url.Parse("https://dev.are.na/")
+	if err != nil {
+		return
+	}
+	arenaApiUrl := widget.NewHyperlink("Click here to get your Are.na API token.", parsedURL)
+
+	// Form configuration
+	form := &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Are.na token:", Widget: arenaTokenEntry},
+			{Text: "Channel slug:", Widget: arenaSlugEntry},
+			{Text: "Block title:", Widget: blockTitleEntry}},
+		SubmitText: "Connect",
+	}
+	stopButton = widget.NewButtonWithIcon("Stop monitoring", theme.MediaStopIcon(), func() {
+		log.Println("stop button pressed")
+		if isMonitoring {
+			// Send stop signals to both monitoring and GUI
+			select {
+			case stopMonitoringChan <- true:
+			default:
+			}
+			select {
+			case stopGUIChan <- true:
+			default:
+			}
+			isMonitoring = false
+			form.Enable()
+			statusBox.Hide()
+			stopButton.Hide()
+		}
+	})
+	// Status components
+	statusIcon := widget.NewIcon(nil)
+	statusText := canvas.NewText("", whiteColor)
+	statusText.TextSize = 14
+
+	arenaStatusText := canvas.NewText("Arena status", whiteColor)
+	arenaStatusText.Hide()
+
+	statusBox = container.NewHBox(statusIcon, statusText, stopButton)
+	statusBox.Hide()
+	if isMonitoring {
+		stopButton.Show()
+	} else {
+		stopButton.Hide()
+	}
+
+	form.OnSubmit = func() {
+		userArenaToken = arenaTokenEntry.Text
+		userSlugChannel = arenaSlugEntry.Text
+		blockTitle = blockTitleEntry.Text
+		if userArenaToken != "" && userSlugChannel != "" && blockTitle != "" {
+			isMonitoring = true
+
+			// Clear any previous stop signals
+			select {
+			case <-stopMonitoringChan:
+			default:
+			}
+			go clipboardMonitoring(userArenaToken, userSlugChannel, blockTitle)
+			statusText.Text = "The software is now monitoring your clipboard—be careful... "
+			statusText.Color = theme.WarningColor()
+			statusText.Refresh()
+			statusIcon.SetResource(theme.MediaVideoIcon())
+			statusBox.Show()
+			form.Disable()
+			stopButton.Show()
+
+			go func() {
+				// Show copiedText on main thread
+				fyne.DoAndWait(func() {
+					copiedTextBox.Show()
+				})
+
+				for {
+					select {
+					case content := <-clipboardContentChan:
+						// Update GUI on main thread using fyne.Do()
+						fyne.Do(func() {
+							copiedText.ParseMarkdown(strings.ReplaceAll(content, "\r\n", ""))
+							copiedText.Refresh()
+							arenaStatusText.Show()
+						})
+
+					case <-stopGUIChan:
+						// Hide text on main thread
+						fyne.Do(func() {
+							copiedTextBox.Hide()
+						})
+						return // Exit the goroutine
+
+					default:
+						// Non-blocking check if monitoring stopped
+						if !isMonitoring {
+							fyne.Do(func() {
+								copiedTextBox.Hide()
+							})
+							return
+						}
+						time.Sleep(100 * time.Millisecond) // Prevents busy-waiting by pausing the loop when no channels are ready, reducing CPU usage
+					}
+				}
+			}()
+		}
+	}
+
+	// Entry validators
+	arenaTokenEntry.Validator = func(text string) error {
+		if len(strings.TrimSpace(text)) == 0 {
+			return fmt.Errorf("token is required")
+		}
+		return nil
+	}
+
+	arenaSlugEntry.Validator = func(text string) error {
+		if len(strings.TrimSpace(text)) == 0 {
+			return fmt.Errorf("channel slug is required")
+		}
+		return nil
+	}
+	blockTitleEntry.Validator = func(text string) error {
+		if len(strings.TrimSpace(text)) == 0 {
+			return fmt.Errorf("block title entry cannot be empty")
+		}
+		return nil
+	}
+
+	// Arena status text
+	go func() {
+		for status := range arenaApiStatus {
+			arenaStatusText.Text = status
+			arenaStatusText.Refresh()
+		}
+	}()
+
+	// Final layout container
+	layoutHeader := container.NewHBox(title, arenaLogoImg)
+	content := container.NewVBox(
+		layoutHeader,
+		widget.NewSeparator(),
+		infoText,
+		widget.NewSeparator(),
+		arenaApiUrl,
+		form,
+		statusBox,
+		copiedTextBox,
+		arenaStatusText,
+	)
+
+	paddedContent := container.NewPadded(content)
+
+	// Final Fyne functions to make this shyte work
+	w.SetContent(paddedContent)
+	w.ShowAndRun()
 }
 
 func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle string) {
@@ -156,12 +358,14 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		arenaApiStatus <- "❌ Error sending request to Are.na: %v\n"
 		log.Printf("❌ Error sending request to Are.na: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		arenaApiStatus <- "✅ Sent to Are.na!"
 		fmt.Printf("✅ Sent to Are.na! (Status: %d)\n", resp.StatusCode)
 	} else {
 		// Read response body for more error details
@@ -178,160 +382,4 @@ func ReadAll(r io.Reader) ([]byte, error) {
 	b := bytes.NewBuffer(make([]byte, 0, 512))
 	_, err := io.Copy(b, r)
 	return b.Bytes(), err
-}
-
-func runGui() {
-	var userArenaToken string
-	var userSlugChannel string
-	var blockTitle string
-
-	// App and window settings
-	a := app.New()
-	a.Settings().SetTheme(&arenaTheme{})
-	w := a.NewWindow("CTRL+C to Are.na")
-	w.Resize(fyne.NewSize(600, 500))
-	w.CenterOnScreen()
-
-	// Images configuration
-	arenaLogoImg := canvas.NewImageFromFile("arena-logo-white.png")
-	arenaLogoImg.FillMode = canvas.ImageFillContain
-	arenaLogoImg.SetMinSize(fyne.NewSize(70, 50))
-
-	// Buttons, form and styles configuration
-
-	// Colors
-	grayColor := color.NRGBA{R: 178, G: 178, B: 178, A: 255}
-	whiteColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
-
-	// Title and info text
-	title := canvas.NewText("Ctrl+C to Are.na", whiteColor)
-	title.TextSize = 42
-	infoText := canvas.NewText("This lil' software will monitor and send whatever TEXT you copy (CTRL+C) into a specified channel in your Are.na account.", grayColor)
-	copiedText := canvas.NewText("The text that will be send.", whiteColor)
-
-	// Form entries
-	arenaTokenEntry := widget.NewPasswordEntry()
-	arenaSlugEntry := widget.NewEntry()
-	blockTitleEntry := widget.NewEntry()
-
-	// External links
-	parsedURL, err := url.Parse("https://dev.are.na/")
-	if err != nil {
-		return
-	}
-	arenaApiUrl := widget.NewHyperlink("Click here to get your Are.na API token.", parsedURL)
-
-	// Form configuration
-	form := &widget.Form{
-		Items: []*widget.FormItem{
-			{Text: "Are.na token:", Widget: arenaTokenEntry},
-			{Text: "Channel slug:", Widget: arenaSlugEntry},
-			{Text: "Block title:", Widget: blockTitleEntry}},
-		SubmitText: "Connect",
-	}
-	stopButton := widget.NewButtonWithIcon("Stop monitoring", theme.MediaStopIcon(), func() {
-		log.Println("stop button pressed")
-		if isMonitoring {
-			// Send stop signal (non-blocking)
-			select {
-			case stopMonitoringChan <- true:
-			default:
-			}
-			isMonitoring = false
-			form.Enable()
-		}
-	})
-	// Status components
-	statusIcon := widget.NewIcon(nil)
-	statusText := canvas.NewText("", whiteColor)
-	statusText.TextSize = 14
-
-	statusBox := container.NewHBox(statusIcon, statusText, stopButton)
-	statusBox.Hide()
-	if isMonitoring {
-		stopButton.Show()
-	} else {
-		stopButton.Hide()
-	}
-
-	form.OnSubmit = func() {
-		userArenaToken = arenaTokenEntry.Text
-		userSlugChannel = arenaSlugEntry.Text
-		blockTitle = blockTitleEntry.Text
-		if userArenaToken != "" && userSlugChannel != "" && blockTitle != "" {
-			isMonitoring = true
-
-			// Clear any previous stop signals
-			select {
-			case <-stopMonitoringChan:
-			default:
-			}
-			go clipboardMonitoring(userArenaToken, userSlugChannel, blockTitle)
-			statusText.Text = "The software is now monitoring your clipboard—be careful..."
-			statusText.Color = theme.WarningColor()
-			statusText.Refresh()
-			statusIcon.SetResource(theme.MediaVideoIcon())
-			statusBox.Show()
-			form.Disable()
-			stopButton.Show()
-
-			go func() {
-				for content := range clipboardContentChan {
-					copiedText.Text = "Last copied:" + strings.ReplaceAll(content, "\r\n", "")
-					copiedText.Refresh()
-				}
-			}()
-		}
-	}
-
-	// Entry validators
-	arenaTokenEntry.Validator = func(text string) error {
-		if len(strings.TrimSpace(text)) == 0 {
-			return fmt.Errorf("token is required")
-		}
-		return nil
-	}
-
-	arenaSlugEntry.Validator = func(text string) error {
-		if len(strings.TrimSpace(text)) == 0 {
-			return fmt.Errorf("channel slug is required")
-		}
-		return nil
-	}
-	blockTitleEntry.Validator = func(text string) error {
-		if len(strings.TrimSpace(text)) == 0 {
-			return fmt.Errorf("block title entry cannot be empty")
-		}
-		return nil
-	}
-
-	// Final layout container
-	layoutHeader := container.NewHBox(title, arenaLogoImg)
-	content := container.NewVBox(
-		layoutHeader,
-		widget.NewSeparator(),
-		infoText,
-		widget.NewSeparator(),
-		arenaApiUrl,
-		form,
-		statusBox,
-		copiedText,
-	)
-
-	paddedContent := container.NewPadded(content)
-
-	// Final Fyne functions to make this shyte work
-	w.SetContent(paddedContent)
-	w.ShowAndRun()
-}
-
-func settingsFileExist(path string) (bool, error) {
-	_, err := os.Lstat(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
