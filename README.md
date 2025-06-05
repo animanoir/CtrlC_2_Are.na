@@ -40,3 +40,7 @@ Please, feel free to fork and enhance the current code so it becomes easier and 
 
 ![Are.na logo](https://d2w9rnfcy7mm78.cloudfront.net/9485135/original_10647a43631b7746e4a0821772aefa41.png?1605218631?bc=0)
 ![Go Gopher in a biplane](https://go.dev/images/gophers/biplane.svg)
+
+---
+
+Built with ❤️ using Go and the Are.na API
