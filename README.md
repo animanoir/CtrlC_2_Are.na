@@ -11,6 +11,12 @@ Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends 
 
 Inside the folder execute in the console `go run .` 
 
+### Final executables
+
+Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/windows
+
+I'll add soon the Mac apps (or if anyone wants to do it feel free).
+
 ## Build
 
 `go build` automatically detects your current operating system and architecture to build for that target by default. However, Go also supports cross-compilation, allowing you to build for different platforms by setting the `GOOS` and `GOARCH` environment variables.
