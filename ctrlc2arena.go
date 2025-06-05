@@ -86,6 +86,7 @@ func runGui() {
 	var blockTitle string
 	var statusBox *fyne.Container
 	var stopButton *widget.Button
+	var saveDataButton *widget.Button
 
 	// App and window settings
 	a := app.New()
@@ -121,6 +122,25 @@ func runGui() {
 	arenaSlugEntry := widget.NewEntry()
 	blockTitleEntry := widget.NewEntry()
 
+	// Checks if the file arena_settings.json exists so it uses the data to fill the entries (cuz we lazy)
+	if _, err := os.Stat("arena_settings.json"); err == nil {
+		file, err := os.Open("arena_settings.json")
+		if err == nil {
+			defer file.Close()
+			decoder := json.NewDecoder(file)
+			var savedData struct {
+				Token string `json:"token"`
+				Slug  string `json:"slug"`
+			}
+			if err := decoder.Decode(&savedData); err == nil {
+				arenaTokenEntry.Text = savedData.Token
+				arenaTokenEntry.Refresh()
+				arenaSlugEntry.Text = savedData.Slug
+				arenaSlugEntry.Refresh()
+			}
+		}
+	}
+
 	// External links
 	parsedURL, err := url.Parse("https://dev.are.na/")
 	if err != nil {
@@ -136,8 +156,12 @@ func runGui() {
 			{Text: "Block title:", Widget: blockTitleEntry}},
 		SubmitText: "Connect",
 	}
+	saveDataButton = widget.NewButtonWithIcon("Save data?", theme.DocumentSaveIcon(), func() {
+		saveDataToFile(arenaTokenEntry.Text, arenaSlugEntry.Text)
+		arenaApiStatus <- "💾 Your data has been saved as arena_settings.json (no need to fill info again 🙈.)"
+	})
 	stopButton = widget.NewButtonWithIcon("Stop monitoring", theme.MediaStopIcon(), func() {
-		log.Println("stop button pressed")
+		// log.Println("stop button pressed")
 		if isMonitoring {
 			// Send stop signals to both monitoring and GUI
 			select {
@@ -158,11 +182,11 @@ func runGui() {
 	statusIcon := widget.NewIcon(nil)
 	statusText := canvas.NewText("", whiteColor)
 	statusText.TextSize = 14
-	arenaStatusString := "⏳ Waiting"
+	arenaStatusString := "⏳ Waiting for new text..."
 	arenaStatusText := canvas.NewText(arenaStatusString, whiteColor)
 	arenaStatusText.Hide()
 
-	statusBox = container.NewHBox(statusIcon, statusText, stopButton)
+	statusBox = container.NewHBox(statusIcon, statusText, stopButton, saveDataButton)
 	statusBox.Hide()
 	if isMonitoring {
 		stopButton.Show()
@@ -296,7 +320,7 @@ func runGui() {
 
 func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle string) {
 
-	fmt.Print("clipboardMonitoring func executing...")
+	// fmt.Print("clipboardMonitoring func executing...")
 	var lastClipboardContent string
 	var err error
 
@@ -325,7 +349,7 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 
 			// If the content changed and is not empty
 			if currentClipboardContent != lastClipboardContent && currentClipboardContent != "" {
-				fmt.Printf("✨ New content detected: ")
+				// fmt.Printf("✨ New content detected: ")
 				arenaApiStatus <- "✨ New content detected! Sending..."
 				// fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
 				clipboardContentChan <- currentClipboardContent
@@ -336,7 +360,7 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 			}
 
 		case <-stopMonitoringChan:
-			fmt.Println("\n🛑 Stopping the monitor...")
+			// fmt.Println("\n🛑 Stopping the monitor...")
 			isMonitoring = false
 			return // Exit the program
 		}
@@ -360,13 +384,13 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 
 	jsonData, err := json.Marshal(blockData)
 	if err != nil {
-		log.Printf("❌ Error encoding JSON: %v\n", err)
+		//log.Printf("❌ Error encoding JSON: %v\n", err)
 		return
 	}
 
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Printf("❌ Error creating HTTP request: %v\n", err)
+		//log.Printf("❌ Error creating HTTP request: %v\n", err)
 		return
 	}
 
@@ -379,7 +403,7 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 	resp, err := client.Do(req)
 	if err != nil {
 		arenaApiStatus <- "❌ Error sending request to Are.na: %v\n"
-		log.Printf("❌ Error sending request to Are.na: %v\n", err)
+		//log.Printf("❌ Error sending request to Are.na: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -403,4 +427,29 @@ func ReadAll(r io.Reader) ([]byte, error) {
 	b := bytes.NewBuffer(make([]byte, 0, 512))
 	_, err := io.Copy(b, r)
 	return b.Bytes(), err
+}
+
+func saveDataToFile(arenaToken string, channelSlug string) {
+
+	type fileData struct {
+		Token string `json:"token"`
+		Slug  string `json:"slug"`
+	}
+
+	data := fileData{
+		Token: arenaToken,
+		Slug:  channelSlug,
+	}
+
+	file, err := os.Create("arena_settings.json")
+	if err != nil {
+		fmt.Println("Error creating file: ", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(data); err != nil {
+		fmt.Println("Error encoding data: ", err)
+		return
+	}
 }
