@@ -13,12 +13,27 @@ Inside the folder execute in the console `go run .`
 
 ## Build
 
+`go build` automatically detects your current operating system and architecture to build for that target by default. However, Go also supports cross-compilation, allowing you to build for different platforms by setting the `GOOS` and `GOARCH` environment variables.
+
 For Windows, this command should work: `go build -ldflags="-H=windowsgui" -o ctrl2arena.exe`
+
+For cross-compilation examples:
+```bash
+# Build for Windows from any OS
+GOOS=windows GOARCH=amd64 go build -ldflags="-H=windowsgui" -o ctrl2arena.exe
+
+# Build for Linux
+GOOS=linux GOARCH=amd64 go build -o ctrl2arena
+
+# Build for macOS
+GOOS=darwin GOARCH=amd64 go build -o ctrl2arena
+```
+
+You can see all supported target combinations with: `go tool dist list`
 
 ## Use case
 
-I like to read and collect information in my Are.na from books and stuff. I also find tedious to copy/paste it each time. So now this tool automatically does it for me, and I can save important notes outside my main computer.
-
+I like to read and collect information in my Are.na from books and stuff. I also find tedious to copy/paste it each time. So now this tool automatically does it for me, and I can save important notes outside my main computer. This has made my research easier and funnier.
 ## Collaboration
 
 Please, feel free to fork and enhance the current code so it becomes easier and more beautiful to use!
