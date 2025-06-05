@@ -81,7 +81,7 @@ var arenaApiStatus chan string
 func main() {
 
 	stopMonitoringChan = make(chan bool, 1)
-	clipboardContentChan = make(chan string, 10)
+	clipboardContentChan = make(chan string, 3)
 	stopGUIChan = make(chan bool, 1)
 	arenaApiStatus = make(chan string, 1)
 	runGui()
@@ -416,10 +416,15 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 		return
 	}
 	defer resp.Body.Close()
-
+	var truncatedContent string
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if len(formattedContent) >= 20 {
+			truncatedContent = formattedContent[:20]
+		} else {
+			truncatedContent = formattedContent
+		}
 
-		arenaApiStatus <- fmt.Sprintf("✅ Copied text successfully sent to your Are.na channel! — Last content: %s at %s", formattedContent[:20]+"...", time.Now().Format("15:04:05"))
+		arenaApiStatus <- fmt.Sprintf("✅ Copied text successfully sent to your Are.na channel! — Last content: %s at %s", truncatedContent+"...", time.Now().Format("15:04:05"))
 		// fmt.Printf("✅ Sent to Are.na! (Status: %d)\n", resp.StatusCode)
 	} else {
 		// Read response body for more error details
