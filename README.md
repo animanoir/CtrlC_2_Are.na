@@ -42,7 +42,7 @@ You can see all supported target combinations with: `go tool dist list`
 I like to read and collect information in my Are.na from books and stuff. I also find tedious to copy/paste it each time. So now this tool automatically does it for me, and I can save important notes outside my main computer. This has made my research easier and funnier.
 ## Collaboration
 
-Please, feel free to fork and enhance the current code so it becomes easier and more beautiful to use!
+Please, feel free to fork and enhance the current code so it becomes easier and beautiful to use!
 
 ![Are.na logo](https://d2w9rnfcy7mm78.cloudfront.net/9485135/original_10647a43631b7746e4a0821772aefa41.png?1605218631?bc=0)
 ![Go Gopher in a biplane](https://go.dev/images/gophers/biplane.svg)
