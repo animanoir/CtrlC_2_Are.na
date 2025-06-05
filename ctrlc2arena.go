@@ -418,7 +418,8 @@ func sendToArena(token, channelSlug, content string, blockTitle string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		arenaApiStatus <- "✅ Copied text successfully sent to your Are.na channel!"
+
+		arenaApiStatus <- fmt.Sprintf("✅ Copied text successfully sent to your Are.na channel! — Last content: %s at %s", formattedContent[:20]+"...", time.Now().Format("15:04:05"))
 		// fmt.Printf("✅ Sent to Are.na! (Status: %d)\n", resp.StatusCode)
 	} else {
 		// Read response body for more error details
