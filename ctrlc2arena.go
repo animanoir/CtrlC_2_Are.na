@@ -81,7 +81,7 @@ var arenaApiStatus chan string
 func main() {
 
 	stopMonitoringChan = make(chan bool, 1)
-	clipboardContentChan = make(chan string, 3)
+	clipboardContentChan = make(chan string, 100)
 	stopGUIChan = make(chan bool, 1)
 	arenaApiStatus = make(chan string, 1)
 	runGui()
