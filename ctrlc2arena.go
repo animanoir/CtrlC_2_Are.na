@@ -81,7 +81,7 @@ var arenaApiStatus chan string
 func main() {
 
 	stopMonitoringChan = make(chan bool, 1)
-	clipboardContentChan = make(chan string, 100)
+	// clipboardContentChan = make(chan string, 100)
 	stopGUIChan = make(chan bool, 1)
 	arenaApiStatus = make(chan string, 1)
 	runGui()
@@ -361,7 +361,7 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 				// fmt.Printf("✨ New content detected: ")
 				arenaApiStatus <- "✨ New content detected! Sending..."
 				// fmt.Println(strings.ReplaceAll(currentClipboardContent, "\r\n", " "))
-				clipboardContentChan <- currentClipboardContent
+				// clipboardContentChan <- currentClipboardContent
 				lastClipboardContent = currentClipboardContent // Update the last content
 
 				// Send to Are.na in a goroutine to avoid blocking the check
