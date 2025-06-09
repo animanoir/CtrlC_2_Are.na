@@ -1,8 +1,9 @@
+# .github/workflows/build.yml
 name: Build Go Application
 
 on:
   push:
-    branches: [ "main" ] 
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -18,7 +19,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.24' 
+        go-version: '1.21'
+
+    - name: Install Linux dependencies
+      if: matrix.goos == 'linux'
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev
+
     - name: Build
       env:
         GOOS: ${{ matrix.goos }}
@@ -37,4 +43,4 @@ jobs:
         path: |
           ctrl2arena
           ctrl2arena.exe
-        if-no-files-found: 'error' 
+        if-no-files-found: 'error'
