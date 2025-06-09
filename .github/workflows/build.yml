@@ -1,0 +1,41 @@
+# .github/workflows/build.yml
+name: Build Go Application
+
+on:
+  push:
+    branches: [ "main" ] 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64]
+        
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24' 
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          go build -ldflags="-H=windowsgui" -o ctrl2arena.exe
+        else
+          go build -o ctrl2arena
+        fi
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ctrl2arena-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: |
+          ctrl2arena
+          ctrl2arena.exe
+        if-no-files-found: 'error' 

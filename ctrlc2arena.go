@@ -73,7 +73,6 @@ type ArenaBlock struct {
 
 var isMonitoring bool = false
 var stopMonitoringChan chan bool
-var clipboardContentChan chan string
 var stopGUIChan chan bool
 var arenaApiStatus chan string
 
