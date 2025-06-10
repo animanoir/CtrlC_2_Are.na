@@ -13,7 +13,7 @@ Inside the folder execute in the console `go run .`
 
 ### Final executables
 
-Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/windows
+Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/release 
 
 I'll add soon the Mac/Linux apps (or if anyone wants to do it feel free).
 
