@@ -4,17 +4,14 @@ name: Build Go Application
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64]
-        
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -22,25 +19,53 @@ jobs:
         go-version: '1.21'
 
     - name: Install Linux dependencies
-      if: matrix.goos == 'linux'
-      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev
-
-    - name: Build
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
       run: |
-        if [ "${{ matrix.goos }}" = "windows" ]; then
-          go build -ldflags="-H=windowsgui" -o ctrl2arena.exe
-        else
-          go build -o ctrl2arena
-        fi
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
-    - name: Upload artifact
+    - name: Build for Linux
+      run: go build -o ctrl2arena-linux
+
+    - name: Upload Linux artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ctrl2arena-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: |
-          ctrl2arena
-          ctrl2arena.exe
-        if-no-files-found: 'error'
+        name: ctrl2arena-linux-amd64
+        path: ctrl2arena-linux
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build for Windows
+      run: go build -ldflags="-H=windowsgui" -o ctrl2arena-windows.exe
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ctrl2arena-windows-amd64
+        path: ctrl2arena-windows.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build for macOS
+      run: go build -o ctrl2arena-macos
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ctrl2arena-macos-amd64
+        path: ctrl2arena-macos
