@@ -2,6 +2,8 @@
 
 Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends the copied text to the specified channel in your Are.na profile.
 
+![CtrlC2Arena](src/pic.png)
+
 ## Things you need to run/develop the source code:
 
 - `Go` (https://go.dev/).
