@@ -62,13 +62,27 @@ func (m *arenaTheme) Size(name fyne.ThemeSizeName) float32 {
 
 // Structure for the Are.na API payload (simplified)
 const (
-	arenaAPIEndpoint = "https://api.are.na/v2/channels/%s/blocks" // %s will be replaced by the channelSlug
-	checkInterval    = 2 * time.Second                            // Interval for checking the clipboard
+	arenaChannelListEndpoint = "https://api.are.na/v2/users/%s/channels"  // %s will be replaced by the userSlug
+	arenaAPIEndpoint         = "https://api.are.na/v2/channels/%s/blocks" // %s will be replaced by the channelSlug
+	checkInterval            = 2 * time.Second                            // Interval for checking the clipboard
 )
 
 type ArenaBlock struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
+}
+
+type User struct {
+	Slug string `json:"slug"`
+}
+
+type Channel struct {
+	Slug string `json:"slug"`
+}
+
+// This struct is for decoding the channels list response
+type ChannelsResponse struct {
+	Channels []Channel `json:"channels"`
 }
 
 var isMonitoring bool = false
@@ -91,6 +105,7 @@ func runGui() {
 	var userSlugChannel string
 	var blockTitle string
 	var statusBox *fyne.Container
+	var getChannelsButton *widget.Button
 	var stopButton *widget.Button
 	var saveDataButton *widget.Button
 
@@ -129,6 +144,10 @@ func runGui() {
 	arenaTokenEntry := widget.NewPasswordEntry()
 	arenaSlugEntry := widget.NewEntry()
 	blockTitleEntry := widget.NewEntry()
+	userChannelsDropdown := widget.NewSelect([]string{}, func(s string) {
+		fmt.Println("Selected channel:", s)
+		arenaSlugEntry.SetText(s)
+	})
 
 	// Checks if the file arena_settings.json exists so it uses the data to fill the entries (cuz we lazy)
 	if _, err := os.Stat("arena_settings.json"); err == nil {
@@ -156,14 +175,37 @@ func runGui() {
 	}
 	arenaApiUrl := widget.NewHyperlink("Click here to get your Are.na API token.", parsedURL)
 
+	getChannelsButton = widget.NewButton("Get my channels", func() {
+		fmt.Print("getChannelsButton pressed")
+		userArenaToken = arenaTokenEntry.Text
+		if userArenaToken != "" {
+			channels, err := fetchUserChannels(userArenaToken)
+			if err != nil {
+				arenaApiStatus <- "❌ Error fetching channels. Check your token?"
+				return
+			}
+			if len(channels) == 0 {
+				arenaApiStatus <- "❌ No channels found in your Are.na account."
+				return
+			}
+			userChannelsDropdown.Options = channels
+			userChannelsDropdown.Refresh()
+			getChannelsButton.SetText(fmt.Sprintf("%d channels loaded ✅", len(channels)))
+			getChannelsButton.Disable()
+		}
+	})
+
 	// Form configuration
 	form := &widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Are.na token:", Widget: arenaTokenEntry},
+			{Widget: getChannelsButton},
+			{Text: "Your channels:", Widget: userChannelsDropdown},
 			{Text: "Channel slug:", Widget: arenaSlugEntry},
 			{Text: "Block title:", Widget: blockTitleEntry}},
 		SubmitText: "Connect",
 	}
+
 	saveDataButton = widget.NewButtonWithIcon("Save data?", theme.DocumentSaveIcon(), func() {
 		saveDataToFile(arenaTokenEntry.Text, arenaSlugEntry.Text)
 		arenaApiStatus <- "💾 Your data has been saved as arena_settings.json (no need to fill info again 🙈.)"
@@ -466,4 +508,66 @@ func saveDataToFile(arenaToken string, channelSlug string) {
 		fmt.Println("Error encoding data: ", err)
 		return
 	}
+}
+
+func fetchUserChannels(userArenaToken string) ([]string, error) {
+
+	// 1. Get user slug from /me endpoint
+	meReq, err := http.NewRequest("GET", "https://api.are.na/v2/me", nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating 'me' request: %w", err)
+	}
+	meReq.Header.Set("Authorization", "Bearer "+userArenaToken)
+	meReq.Header.Set("User-Agent", "Go CTRL+C2Arena Connector (https://github.com/animanoir)")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	meResp, err := client.Do(meReq)
+	if err != nil {
+		return nil, fmt.Errorf("error performing 'me' request: %w", err)
+	}
+	defer meResp.Body.Close()
+
+	if meResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get user details, status: %s", meResp.Status)
+	}
+
+	var user User
+	if err := json.NewDecoder(meResp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("error decoding user response: %w", err)
+	}
+
+	if user.Slug == "" {
+		return nil, fmt.Errorf("could not find user slug")
+	}
+
+	// 2. Get user channels using the slug
+	channelsURL := fmt.Sprintf(arenaChannelListEndpoint, user.Slug)
+	channelsReq, err := http.NewRequest("GET", channelsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating channels request: %w", err)
+	}
+	channelsReq.Header.Set("Authorization", "Bearer "+userArenaToken)
+	channelsReq.Header.Set("User-Agent", "Go CTRL+C2Arena Connector (https://github.com/animanoir)")
+
+	channelsResp, err := client.Do(channelsReq)
+	if err != nil {
+		return nil, fmt.Errorf("error performing channels request: %w", err)
+	}
+	defer channelsResp.Body.Close()
+
+	if channelsResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get channels, status: %s", channelsResp.Status)
+	}
+
+	var channelsResponse ChannelsResponse
+	if err := json.NewDecoder(channelsResp.Body).Decode(&channelsResponse); err != nil {
+		return nil, fmt.Errorf("error decoding channels response: %w", err)
+	}
+
+	var channelSlugs []string
+	for _, channel := range channelsResponse.Channels {
+		channelSlugs = append(channelSlugs, channel.Slug)
+	}
+
+	return channelSlugs, nil
 }
