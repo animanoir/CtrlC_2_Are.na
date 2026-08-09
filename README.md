@@ -1,3 +1,5 @@
+
+
 # Ctrl+C 2 Are.na
 
 Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends the copied text to the specified channel in your Are.na profile.
@@ -8,10 +10,10 @@ Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends 
 
 - `Go` (https://go.dev/).
 - An Are.na account.
-- An `ARENA_PERSONAL_ACCESS_TOKEN` (https://dev.are.na/oauth/applications).
-- The slug of the channel you want to feed (as of `https://www.are.na/{your-profile}/{your-channel}`).
+- Your Are.na personal access token (https://dev.are.na/oauth/applications).
+- The slug of the channel you want to feed (from `https://www.are.na/{your-profile}/{your-channel}`).
 
-Inside the folder execute in the console `go run .` 
+Inside the folder, execute `go run .` in the console. The token and channel slug are entered directly into the application's GUI.
 
 ### Final executables
 
