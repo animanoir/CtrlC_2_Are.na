@@ -2,7 +2,7 @@
 
 Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends the copied text to the specified channel in your Are.na profile.
 
-![CtrlC2Arena](pic.png)
+![CtrlC2Arena](img.png)
 
 ## Things you need to run/develop the source code:
 
@@ -11,11 +11,11 @@ Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends 
 - An Are.na personal access token with the `write` scope (https://www.are.na/settings/personal-access-tokens). The app uses the [Are.na API v3](https://www.are.na/developers/explore).
 - The slug of the channel you want to feed (as of `https://www.are.na/{your-profile}/{your-channel}`).
 
-Inside the folder execute in the console `go run .` 
+Inside the folder execute in the console `go run .`
 
 ### Final executables
 
-Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/release 
+Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/release
 
 I'll add soon the Mac/Linux apps (or if anyone wants to do it feel free).
 
@@ -26,6 +26,7 @@ I'll add soon the Mac/Linux apps (or if anyone wants to do it feel free).
 For Windows, this command should work: `go build -ldflags="-H=windowsgui" -o ctrl2arena.exe`
 
 For cross-compilation examples:
+
 ```bash
 # Build for Windows from any OS
 GOOS=windows GOARCH=amd64 go build -ldflags="-H=windowsgui" -o ctrl2arena.exe
@@ -42,6 +43,7 @@ You can see all supported target combinations with: `go tool dist list`
 ## Use case
 
 I like to read and collect information in my Are.na from books and stuff. I also find tedious to copy/paste it each time. So now this tool automatically does it for me, and I can save important notes outside my main computer. This has made my research easier and funnier.
+
 ## Collaboration
 
 Please, feel free to fork and enhance the current code so it becomes easier and beautiful to use!
