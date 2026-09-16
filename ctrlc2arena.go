@@ -128,6 +128,8 @@ var (
 	bodyStyle    = widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameText}
 	quietStyle   = widget.RichTextStyle{ColorName: colorNameGraphite, SizeName: theme.SizeNameText}
 	captionStyle = widget.RichTextStyle{ColorName: colorNameGraphite, SizeName: theme.SizeNameCaptionText, Alignment: fyne.TextAlignCenter}
+	// Block titles and channel names under the block preview
+	captionBoldStyle = widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameCaptionText, Alignment: fyne.TextAlignCenter, TextStyle: fyne.TextStyle{Bold: true}}
 )
 
 // Everything on screen that changes while the app runs
@@ -242,7 +244,7 @@ func newAppUI(a fyne.App) *appUI {
 	ui.tileHint = newWrappedText("Copied text shows up here.", captionStyle)
 	ui.passage = container.New(layout.NewCustomPaddedVBoxLayout(passageLeading))
 	ui.passage.Hide()
-	ui.blockTitle = newWrappedText("", widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameCaptionText, Alignment: fyne.TextAlignCenter, TextStyle: fyne.TextStyle{Bold: true}})
+	ui.blockTitle = newWrappedText("", captionBoldStyle)
 	ui.blockTitle.Hide()
 	ui.blockStatus = newWrappedText("", captionStyle)
 	ui.blockStatus.Hide()
@@ -349,7 +351,12 @@ func (ui *appUI) start() {
 
 	ui.sentCount = 0
 	setText(ui.sentCountText, blocksSentText(ui.sentCount))
-	setText(ui.listeningDetail, fmt.Sprintf("Everything you copy is sent to %s. Stop listening before you copy anything private.", slug))
+	ui.listeningDetail.Segments = []widget.RichTextSegment{
+		&widget.TextSegment{Text: "Everything you copy is sent to ", Style: inline(quietStyle)},
+		&widget.TextSegment{Text: breakableSlug(slug), Style: inline(labelStyle)}, // Bold, so it's clear where copies go
+		&widget.TextSegment{Text: ". Stop listening before you copy anything private.", Style: inline(quietStyle)},
+	}
+	ui.listeningDetail.Refresh()
 	if ui.passage.Hidden {
 		setText(ui.tileHint, "Copy some text to send your first block.")
 	}
@@ -381,19 +388,30 @@ func (ui *appUI) showUpdate(update arenaUpdate) {
 	setText(ui.blockTitle, ui.blockTitleText)
 	ui.blockTitle.Hidden = ui.blockTitleText == ""
 
-	status := ui.blockStatus.Segments[0].(*widget.TextSegment)
-	status.Style.ColorName = colorNameGraphite
+	// The channel name is bold, so it's clear where copies go
+	channel := &widget.TextSegment{Text: breakableSlug(update.Channel), Style: inline(captionBoldStyle)}
 	ui.tileFailed = false
 	switch update.State {
 	case blockSending:
-		status.Text = fmt.Sprintf("Sending to %s…", update.Channel)
+		ui.blockStatus.Segments = []widget.RichTextSegment{
+			&widget.TextSegment{Text: "Sending to ", Style: inline(captionStyle)},
+			channel,
+			&widget.TextSegment{Text: "…", Style: captionStyle},
+		}
 	case blockSent:
-		status.Text = fmt.Sprintf("Sent to %s at %s", update.Channel, time.Now().Format("15:04"))
+		ui.blockStatus.Segments = []widget.RichTextSegment{
+			&widget.TextSegment{Text: "Sent to ", Style: inline(captionStyle)},
+			channel,
+			&widget.TextSegment{Text: " at " + time.Now().Format("15:04"), Style: captionStyle},
+		}
 		ui.sentCount++
 		setText(ui.sentCountText, blocksSentText(ui.sentCount))
 	case blockFailed:
-		status.Text = update.Message
-		status.Style.ColorName = theme.ColorNameError
+		errorStyle := captionStyle
+		errorStyle.ColorName = theme.ColorNameError
+		ui.blockStatus.Segments = []widget.RichTextSegment{
+			&widget.TextSegment{Text: update.Message, Style: errorStyle},
+		}
 		ui.tileFailed = true
 	}
 	ui.blockStatus.Show()
@@ -471,6 +489,12 @@ func (ui *appUI) flashTile() {
 	})
 	flash.Curve = fyne.AnimationEaseOut
 	flash.Start()
+}
+
+// Fyne only wraps lines at spaces, so a long slug would break mid-word.
+// A hair space after each hyphen is nearly invisible, and lets the slug wrap at its hyphens instead.
+func breakableSlug(slug string) string {
+	return strings.ReplaceAll(slug, "-", "- ")
 }
 
 func blocksSentText(count int) string {
