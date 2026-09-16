@@ -630,9 +630,19 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 
 	}
 }
+
+// Removes the text's formatting so it reads cleanly in a block:
+// line breaks, tabs and runs of spaces (including non-breaking ones) all become a single space.
+func unformatted(text string) string {
+	return strings.Join(strings.Fields(text), " ")
+}
+
 func sendToArena(token, channelSlug, content string, blockTitle string) {
 	// Formats the text before sending
-	formattedContent := strings.ReplaceAll(content, "\r\n", " ")
+	formattedContent := unformatted(content)
+	if formattedContent == "" {
+		return // Nothing but spaces or line breaks was copied
+	}
 
 	update := arenaUpdate{State: blockSending, Channel: channelSlug, Content: formattedContent}
 	arenaUpdates <- update
