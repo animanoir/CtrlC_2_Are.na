@@ -26,3 +26,5 @@ go.work.sum
 
 # arena settings
 arena_settings.json
+# release build output
+dist/

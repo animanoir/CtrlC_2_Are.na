@@ -1,71 +1,123 @@
-# .github/workflows/build.yml
-name: Build Go Application
+# Builds the app on every push and pull request.
+# Pushing a tag like v2.0.0 also publishes a GitHub release with the binaries attached
+# and the matching section of CHANGELOG.md as the release notes.
+name: Build and release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+    tags: ["v*"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+
+env:
+  GO_VERSION: "1.24"
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Install Linux dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
-    - name: Build for Linux
-      run: go build -o ctrl2arena-linux
+      - name: Build for Linux
+        run: go build -ldflags="-s -w" -o ctrl2arena-linux-amd64
 
-    - name: Upload Linux artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ctrl2arena-linux-amd64
-        path: ctrl2arena-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ctrl2arena-linux-amd64
+          path: ctrl2arena-linux-amd64
 
   build-windows:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Build for Windows
-      run: go build -ldflags="-H=windowsgui" -o ctrl2arena-windows.exe
+      - name: Build for Windows
+        run: go build -ldflags="-s -w -H=windowsgui" -o ctrl2arena-windows-amd64.exe
 
-    - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ctrl2arena-windows-amd64
-        path: ctrl2arena-windows.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ctrl2arena-windows-amd64
+          path: ctrl2arena-windows-amd64.exe
 
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Build for macOS
-      run: go build -o ctrl2arena-macos
+      # One binary that runs on both Intel and Apple Silicon Macs
+      - name: Build for macOS (universal)
+        run: |
+          GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o ctrl2arena-amd64
+          GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-s -w" -o ctrl2arena-arm64
+          lipo -create ctrl2arena-amd64 ctrl2arena-arm64 -output ctrl2arena-macos-universal
+          file ctrl2arena-macos-universal
 
-    - name: Upload macOS artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ctrl2arena-macos-amd64
-        path: ctrl2arena-macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ctrl2arena-macos-universal
+          path: ctrl2arena-macos-universal
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # Zip each binary. Artifacts lose the executable bit, so it's restored first;
+      # zip keeps it, so the macOS and Linux files run straight after unzipping.
+      - name: Package binaries
+        run: |
+          mkdir dist
+          for dir in artifacts/*/; do
+            name=$(basename "$dir")
+            chmod +x "$dir"/*
+            (cd "$dir" && zip -j "../../dist/$name.zip" *)
+          done
+          ls -la dist
+
+      # Release notes are the section of CHANGELOG.md whose heading matches the tag
+      - name: Extract release notes
+        run: |
+          awk -v tag="${GITHUB_REF_NAME}" '
+            /^## / { printing = ($2 == tag) ; next }
+            printing { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No section for ${GITHUB_REF_NAME} in CHANGELOG.md" >&2
+            exit 1
+          fi
+          cat release-notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: dist/*.zip

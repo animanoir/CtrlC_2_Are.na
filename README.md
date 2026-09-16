@@ -43,9 +43,7 @@ The file contains just `{"slug":"your-channel"}`; the token is never in it.
 
 ### Final executables
 
-Here is the Windows .exe file: https://github.com/animanoir/CtrlC_2_Are.na/releases/tag/release
-
-I'll add soon the Mac/Linux apps (or if anyone wants to do it feel free).
+Download the latest version for macOS, Windows or Linux from the [Releases page](https://github.com/animanoir/CtrlC_2_Are.na/releases/latest).
 
 ## Build
 
@@ -67,6 +65,20 @@ GOOS=darwin GOARCH=amd64 go build -o ctrl2arena
 ```
 
 You can see all supported target combinations with: `go tool dist list`
+
+### Publishing a release
+
+Releases are built and published by GitHub Actions. Versions follow [semantic versioning](https://semver.org/): bump the first number when users must change something, the second for new features, the third for fixes.
+
+1. Add a `## vX.Y.Z` section to the top of `CHANGELOG.md` describing the changes. Its contents become the release notes.
+2. Commit, then tag and push:
+
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin main --tags
+   ```
+
+The workflow builds the three platforms and creates the release with the zips attached. It fails on purpose if `CHANGELOG.md` has no section for the tag.
 
 ## Use case
 
