@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image/color"
 	"io"
@@ -38,7 +37,6 @@ var arenaLogoBytes []byte
 const (
 	arenaAPIEndpoint = "https://api.are.na/v3/blocks" // Creates a block and connects it to the given channels
 	checkInterval    = 2 * time.Second                // Interval for checking the clipboard
-	settingsFileName = "arena_settings.json"
 )
 
 // Block preview
@@ -127,6 +125,7 @@ var (
 	labelStyle   = widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameText, TextStyle: fyne.TextStyle{Bold: true}}
 	bodyStyle    = widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameText}
 	quietStyle   = widget.RichTextStyle{ColorName: colorNameGraphite, SizeName: theme.SizeNameText}
+	errorStyle   = widget.RichTextStyle{ColorName: theme.ColorNameError, SizeName: theme.SizeNameText}
 	captionStyle = widget.RichTextStyle{ColorName: colorNameGraphite, SizeName: theme.SizeNameCaptionText, Alignment: fyne.TextAlignCenter}
 	// Block titles and channel names under the block preview
 	captionBoldStyle = widget.RichTextStyle{ColorName: theme.ColorNameForeground, SizeName: theme.SizeNameCaptionText, Alignment: fyne.TextAlignCenter, TextStyle: fyne.TextStyle{Bold: true}}
@@ -151,6 +150,7 @@ type appUI struct {
 	listeningDot    *canvas.Circle
 	listeningBlink  *fyne.Animation // Running while listening, nil otherwise
 	listeningDetail *widget.RichText
+	saveProblem     *widget.RichText // Shown when the token or channel couldn't be remembered
 	sentCountText   *widget.RichText
 	sentCount       int
 
@@ -189,7 +189,7 @@ func newAppUI(a fyne.App) *appUI {
 	}
 
 	// Fills the entries with saved data (cuz we lazy)
-	if token, slug, ok := loadSavedData(); ok {
+	if token, slug := loadSettings(); token != "" || slug != "" {
 		ui.tokenEntry.SetText(token)
 		ui.slugEntry.SetText(slug)
 		ui.rememberCheck.SetChecked(true)
@@ -220,6 +220,8 @@ func newAppUI(a fyne.App) *appUI {
 	// Listening
 	ui.listeningDot = canvas.NewCircle(color.Transparent)
 	ui.listeningDetail = newWrappedText("", quietStyle)
+	ui.saveProblem = newWrappedText("", errorStyle)
+	ui.saveProblem.Hide()
 	ui.sentCountText = newText("", bodyStyle)
 	stopButton := widget.NewButton("Stop listening", ui.stop)
 
@@ -230,7 +232,9 @@ func newAppUI(a fyne.App) *appUI {
 		),
 		gap(8),
 		flush(ui.listeningDetail),
-		gap(24),
+		gap(8),
+		flush(ui.saveProblem),
+		gap(16),
 		flush(ui.sentCountText),
 		gap(24),
 		container.NewHBox(stopButton),
@@ -334,10 +338,14 @@ func (ui *appUI) start() {
 		return
 	}
 
+	ui.saveProblem.Hide()
 	if ui.rememberCheck.Checked {
-		saveDataToFile(token, slug)
+		if err := saveSettings(token, slug); err != nil {
+			setText(ui.saveProblem, "Some settings couldn’t be remembered, so you may need to enter them again next time. "+err.Error())
+			ui.saveProblem.Show()
+		}
 	} else {
-		forgetSavedData()
+		forgetSettings()
 	}
 
 	// Clear any previous stop signals
@@ -727,45 +735,4 @@ func ReadAll(r io.Reader) ([]byte, error) {
 	b := bytes.NewBuffer(make([]byte, 0, 512))
 	_, err := io.Copy(b, r)
 	return b.Bytes(), err
-}
-
-type savedData struct {
-	Token string `json:"token"`
-	Slug  string `json:"slug"`
-}
-
-// Reads the token and slug from arena_settings.json, if it exists
-func loadSavedData() (token string, slug string, ok bool) {
-	file, err := os.Open(settingsFileName)
-	if err != nil {
-		return "", "", false
-	}
-	defer file.Close()
-
-	var data savedData
-	if err := json.NewDecoder(file).Decode(&data); err != nil {
-		return "", "", false
-	}
-	return data.Token, data.Slug, true
-}
-
-func saveDataToFile(arenaToken string, channelSlug string) {
-	file, err := os.Create(settingsFileName)
-	if err != nil {
-		fmt.Println("Error creating file: ", err)
-		return
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	if err := encoder.Encode(savedData{Token: arenaToken, Slug: channelSlug}); err != nil {
-		fmt.Println("Error encoding data: ", err)
-		return
-	}
-}
-
-func forgetSavedData() {
-	if err := os.Remove(settingsFileName); err != nil && !errors.Is(err, os.ErrNotExist) {
-		fmt.Println("Error removing saved data: ", err)
-	}
 }
