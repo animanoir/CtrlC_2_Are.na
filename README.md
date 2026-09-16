@@ -8,7 +8,7 @@ Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends 
 
 - `Go` (https://go.dev/).
 - An Are.na account.
-- An `ARENA_PERSONAL_ACCESS_TOKEN` (https://dev.are.na/oauth/applications).
+- An Are.na personal access token with the `write` scope (https://www.are.na/settings/personal-access-tokens). The app uses the [Are.na API v3](https://www.are.na/developers/explore).
 - The slug of the channel you want to feed (as of `https://www.are.na/{your-profile}/{your-channel}`).
 
 Inside the folder execute in the console `go run .` 
