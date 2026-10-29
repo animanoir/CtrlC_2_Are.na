@@ -2,6 +2,12 @@
 
 Each section's heading is a git tag. When that tag is pushed, the section becomes the notes of the GitHub release.
 
+## v2.0.1
+
+- Words that were hyphenated at the end of a line, as happens when copying from a PDF, are joined again: "he-" at the end of one line and "llo" at the start of the next now arrive as "hello" instead of "he- llo".
+- Hyphens that belong to the word are kept: names ("Jean-Paul"), numbers ("COVID-19"), single letters ("e-mail"), compounds with more than one hyphen ("mother-in-law") and hanging hyphens ("pre- and post-war"). A compound broken at its only hyphen ("well-known") can't be told apart from a syllable break and is joined too.
+- Invisible soft hyphens are removed from copied text.
+
 ## v2.0.0
 
 A redesign, a move to the current Are.na API, and safer storage of your token. **Existing users need to check two things after updating**, see "Upgrading" below.

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
@@ -639,10 +640,116 @@ func clipboardMonitoring(_accessToken string, _channelSlug string, _blockTitle s
 	}
 }
 
-// Removes the text's formatting so it reads cleanly in a block:
-// line breaks, tabs and runs of spaces (including non-breaking ones) all become a single space.
+// Removes the text's formatting so it reads cleanly in a block: words hyphenated at the end of
+// a line are joined again, then line breaks, tabs and runs of spaces (including non-breaking ones)
+// all become a single space.
 func unformatted(text string) string {
-	return strings.Join(strings.Fields(text), " ")
+	return strings.Join(strings.Fields(dehyphenated(text)), " ")
+}
+
+const softHyphen = '\u00ad' // Marks where a word may be broken; invisible unless it is
+
+// Words that follow a hanging hyphen, as in "pre- and post-war" or "corto- y largo plazo"
+var hangingHyphenNext = map[string]bool{
+	"and": true, "or": true, "nor": true, "to": true, // English
+	"y": true, "o": true, "e": true, "u": true, "ou": true, "et": true, // Spanish, Portuguese, Italian, French
+	"und": true, "oder": true, // German
+}
+
+// Joins words that were hyphenated at the end of a line, as happens when text is copied from a PDF
+// or a justified column: "he-\nllo" becomes "hello" instead of "he- llo".
+//
+// The hyphen is kept when it most likely belongs to the word rather than to the line break: a capital
+// follows it ("Jean-\nPaul"), a digit touches it ("COVID-\n19"), a single letter precedes it ("e-\nmail"),
+// the word has another hyphen ("mother-in-\nlaw"), or it hangs before a conjunction ("pre-\nand post-war").
+// Soft hyphens only mark where a word may be broken, so they're removed wherever they are.
+func dehyphenated(text string) string {
+	runes := []rune(text)
+	var out strings.Builder
+	out.Grow(len(text))
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r != softHyphen && !isHyphen(r) {
+			out.WriteRune(r)
+			continue
+		}
+		next, broken := lineBreakAfter(runes, i)
+		insideWord := i > 0 && isWordRune(runes[i-1]) && next < len(runes) && isWordRune(runes[next])
+		switch {
+		case r == softHyphen:
+			if broken && insideWord {
+				i = next - 1 // The break happened here, so it goes with the soft hyphen
+			}
+		case broken && insideWord:
+			out.WriteString(hyphenReplacement(runes, i, next))
+			i = next - 1
+		default:
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
+// What takes the place of a hyphen at the end of a line and of the line break after it
+func hyphenReplacement(runes []rune, hyphen, next int) string {
+	head := wordRunesBefore(runes, hyphen) // "mother-in-\nlaw": "in"
+	tail := wordRunesAfter(runes, next)    // "law"
+	beforeHead := hyphen - len(head) - 1
+	afterTail := next + len(tail)
+	kept := string(runes[hyphen])
+	switch {
+	case hangingHyphenNext[strings.ToLower(string(tail))]:
+		return kept + " " // "pre- and post-war"
+	case unicode.IsUpper(tail[0]), // "Jean-Paul"
+		unicode.IsDigit(runes[hyphen-1]), unicode.IsDigit(tail[0]), // "COVID-19", "mid-1990s"
+		len(head) == 1, // "e-mail", "X-ray"
+		beforeHead >= 1 && isHyphen(runes[beforeHead]) && isWordRune(runes[beforeHead-1]), // "mother-in-law"
+		afterTail+1 < len(runes) && isHyphen(runes[afterTail]) && isWordRune(runes[afterTail+1]):
+		return kept
+	default:
+		return "" // "hel-" + "lo" → "hello"
+	}
+}
+
+// Index of the first rune after the whitespace that follows position i, and whether that whitespace
+// holds exactly one line break: a paragraph break never splits a word.
+func lineBreakAfter(runes []rune, i int) (next int, oneBreak bool) {
+	breaks := 0
+	for next = i + 1; next < len(runes) && unicode.IsSpace(runes[next]); next++ {
+		if isLineBreak(runes[next]) && !(runes[next] == '\n' && runes[next-1] == '\r') {
+			breaks++
+		}
+	}
+	return next, breaks == 1
+}
+
+func wordRunesBefore(runes []rune, i int) []rune {
+	start := i
+	for start > 0 && isWordRune(runes[start-1]) {
+		start--
+	}
+	return runes[start:i]
+}
+
+func wordRunesAfter(runes []rune, i int) []rune {
+	end := i
+	for end < len(runes) && isWordRune(runes[end]) {
+		end++
+	}
+	return runes[i:end]
+}
+
+func isWordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
+
+// The hyphen-minus and the typographic hyphen; dashes aren't used to break words
+func isHyphen(r rune) bool { return r == '-' || r == '\u2010' }
+
+func isLineBreak(r rune) bool {
+	switch r {
+	case '\n', '\r', '\v', '\f', '\u0085', '\u2028', '\u2029':
+		return true
+	}
+	return false
 }
 
 func sendToArena(token, channelSlug, content string, blockTitle string) {
