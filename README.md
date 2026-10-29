@@ -4,14 +4,16 @@ Simple `Go` utility that monitors the Clipboard. Whenever you `Ctrl+C` it sends 
 
 ![CtrlC2Arena](img.png)
 
-## Things you need to run/develop the source code:
+## Download
 
-- `Go` (https://go.dev/).
+You don't need `Go` or the source code to use the app. Download the ready-made executable for macOS, Windows or Linux from the [Releases page](https://github.com/animanoir/CtrlC_2_Are.na/releases/latest), unzip it and run it.
+
+## Things you need
+
 - An Are.na account.
-- An Are.na personal access token with the `write` scope (https://www.are.na/settings/personal-access-tokens). The app uses the [Are.na API v3](https://www.are.na/developers/explore).
+- An Are.na personal access token with **Read and Write** permission (https://www.are.na/settings/personal-access-tokens). A read-only token won't let the app add blocks to your channel. The app uses the [Are.na API v3](https://www.are.na/developers/explore).
 - The slug of the channel you want to feed (as of `https://www.are.na/{your-profile}/{your-channel}`).
-
-Inside the folder execute in the console `go run .`
+- `Go` (https://go.dev/), only if you want to run or develop the source code. Inside the folder execute in the console `go run .`
 
 ## Where your token is stored
 
@@ -40,10 +42,6 @@ The file contains just `{"slug":"your-channel"}`; the token is never in it.
 **To forget everything**, untick the checkbox and press "Start listening" once. The app removes the token from the password manager and deletes the settings file. You can also delete the keychain item by hand using the table above.
 
 **Upgrading from an older version:** earlier releases saved the token in plain text in a file called `arena_settings.json` next to the app. On first launch, the new version moves its contents into the storage described above and deletes that file. If the token can't be moved (for example, no keyring on Linux), the old file is left untouched so nothing is lost — delete it by hand once you've re-entered the token.
-
-### Final executables
-
-Download the latest version for macOS, Windows or Linux from the [Releases page](https://github.com/animanoir/CtrlC_2_Are.na/releases/latest).
 
 ## Build
 
