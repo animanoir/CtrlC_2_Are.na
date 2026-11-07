@@ -38,6 +38,7 @@ const (
 // Are.na is black and white, so the app is too. The only hue is red, reserved for errors.
 type palette struct {
 	paper, ink, graphite, hairline, wash, placeholder, disabled, disabledButton, danger color.Color
+	overlay                                                                             color.Color // Dialogs. On black, a slightly lighter surface is all that sets them apart.
 }
 
 var lightPalette = palette{
@@ -50,6 +51,7 @@ var lightPalette = palette{
 	disabled:       color.NRGBA{R: 0xa3, G: 0xa3, B: 0xa3, A: 0xff},
 	disabledButton: color.NRGBA{R: 0xed, G: 0xed, B: 0xed, A: 0xff},
 	danger:         color.NRGBA{R: 0xb3, G: 0x26, B: 0x1e, A: 0xff},
+	overlay:        color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff},
 }
 
 var darkPalette = palette{
@@ -62,6 +64,7 @@ var darkPalette = palette{
 	disabled:       color.NRGBA{R: 0x5c, G: 0x5c, B: 0x5c, A: 0xff},
 	disabledButton: color.NRGBA{R: 0x1a, G: 0x1a, B: 0x1a, A: 0xff},
 	danger:         color.NRGBA{R: 0xff, G: 0x7b, B: 0x6e, A: 0xff},
+	overlay:        color.NRGBA{R: 0x1a, G: 0x1a, B: 0x1a, A: 0xff},
 }
 
 // Mid-gray overlays read on black and white surfaces alike, so keyboard focus stays visible on every button.
@@ -102,6 +105,8 @@ func (m *arenaTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) 
 		return p.disabledButton
 	case theme.ColorNameError:
 		return p.danger
+	case theme.ColorNameOverlayBackground:
+		return p.overlay
 	case theme.ColorNameHover:
 		return hoverTint
 	case theme.ColorNamePressed:
@@ -178,8 +183,49 @@ func flush(obj fyne.CanvasObject) *fyne.Container {
 }
 
 // Checkboxes draw their box a little in from the left
+func checkOutdent() float32 {
+	return theme.Size(theme.SizeNameInnerPadding)/2 + theme.Size(theme.SizeNameInputBorder)
+}
+
 func flushCheck(check *widget.Check) *fyne.Container {
-	return container.New(outdentLayout{left: theme.Size(theme.SizeNameInnerPadding)/2 + theme.Size(theme.SizeNameInputBorder)}, check)
+	return container.New(outdentLayout{left: checkOutdent()}, check)
+}
+
+// Four columns for a checkbox, a number entry, its unit and a hint icon. Rows that share one of these line up:
+// the first column is as wide as the widest checkbox, the entry keeps a fixed width, and the rest follow at
+// their own widths, centered on the row.
+type numberRowLayout struct {
+	labelWidth, entryWidth, gap float32
+}
+
+func (l numberRowLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	check, entry := objects[0], objects[1]
+	check.Move(fyne.NewPos(0, 0))
+	check.Resize(fyne.NewSize(l.labelWidth, size.Height)) // The whole row's height, so the box is centered and clicks land
+	x := l.labelWidth + l.gap
+	entryHeight := entry.MinSize().Height
+	entry.Move(fyne.NewPos(x, (size.Height-entryHeight)/2))
+	entry.Resize(fyne.NewSize(l.entryWidth, entryHeight))
+	x += l.entryWidth
+	for _, o := range objects[2:] {
+		x += l.gap
+		min := o.MinSize()
+		o.Move(fyne.NewPos(x, (size.Height-min.Height)/2))
+		o.Resize(min)
+		x += min.Width
+	}
+}
+
+func (l numberRowLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	width, height := l.labelWidth+l.gap+l.entryWidth, float32(0)
+	for i, o := range objects {
+		min := o.MinSize()
+		height = max(height, min.Height)
+		if i >= 2 {
+			width += l.gap + min.Width
+		}
+	}
+	return fyne.NewSize(width, height)
 }
 
 // Recolors the white Are.na logo so it reads on light and dark backgrounds.

@@ -2,6 +2,20 @@
 
 Each section's heading is a git tag. When that tag is pushed, the section becomes the notes of the GitHub release.
 
+## v2.1.0
+
+Two safeguards against sending a secret by accident, listening that stops by itself, and an About dialog.
+
+- Copies made by password managers are ignored on macOS and Windows. They mark what they copy as concealed, and the app now leaves those copies alone: nothing is sent or shown. Linux has no such mark, so nothing changes there.
+- Text that looks like a key, token or password is held back: keys and tokens from common services (OpenAI, Stripe, GitHub, Slack, AWS, Google, GitLab, npm, PyPI), login tokens, private keys, passwords inside web addresses, and lone random-looking strings. The preview says "Looks like a secret, so it wasn’t sent." instead of showing the text. Quotes and sentences are never held back, and the safeguards can't be turned off.
+- Listening stops by itself after 30 minutes without a new copy, and the window says so. The row under "Remember token and channel" turns this off or changes the minutes (1 to 720); the choice is remembered along with the channel.
+- An **About** button in the bottom-right corner shows the version and links to the source code and to the page for reporting a problem or suggesting something.
+- A small "?" at the end of the "Stop listening after" and "Hold before sending" rows explains the number when you hover or tap it (Esc closes it); it dims along with its row when the row is off.
+- Those two rows line up: their number fields start at the same place and are the same width.
+- An optional hold before sending, off unless you turn it on: each copy waits a few seconds (1 to 30, 5 to begin with) with a countdown and an Undo button under the preview, and Undo or Esc drops it before anything reaches Are.na. Stopping listening drops whatever is still waiting.
+- The window has a fixed size that fits its content, the About button sits closer to it, and the reminder to stop listening before copying anything private stands on its own line, in bold.
+- The README has new sections, "What gets sent" and "Stopping automatically".
+
 ## v2.0.1
 
 - Words that were hyphenated at the end of a line, as happens when copying from a PDF, are joined again: "he-" at the end of one line and "llo" at the start of the next now arrive as "hello" instead of "he- llo".

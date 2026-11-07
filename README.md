@@ -43,6 +43,27 @@ The file contains just `{"slug":"your-channel"}`; the token is never in it.
 
 **Upgrading from an older version:** earlier releases saved the token in plain text in a file called `arena_settings.json` next to the app. On first launch, the new version moves its contents into the storage described above and deletes that file. If the token can't be moved (for example, no keyring on Linux), the old file is left untouched so nothing is lost — delete it by hand once you've re-entered the token.
 
+## What gets sent
+
+While the app is listening, every text you copy becomes a block in your channel. Two safeguards catch the most common slips, but neither is a reason to leave it listening while you work with anything private.
+
+- **Copies from password managers are ignored.** On macOS and Windows, password managers mark what they copy as concealed, and the app skips those copies: they're neither sent nor shown in the preview. Linux has no such mark, so this doesn't apply there.
+- **Text that looks like a key or token is held back.** API keys and tokens from common services, private keys, passwords inside web addresses, and lone random-looking strings aren't sent. Instead of a preview, the app says "Looks like a secret, so it wasn’t sent." This is a guess from the shape of the text: a quote or a sentence is never held back, and a secret that doesn't look like one will get through.
+
+Both safeguards are always on; there is no way to turn them off. Whatever you collect ends up in the channel you chose, and open channels can be read by anyone. If you collect anything sensitive, feed a private channel, which only you can see.
+
+## Stopping automatically
+
+Listening stops by itself after 30 minutes without a new copy, so the app isn't left watching the clipboard once you've put the book down. Every copy restarts the count, including ones that were held back or failed to send. When it stops, the window goes back to the start screen and says so: "Stopped after 30 minutes without copies."
+
+The row under "Remember token and channel" controls this. Untick "Stop listening after" to keep listening until you stop it yourself, or change the number of minutes, from 1 to 720 (twelve hours). The choice is remembered along with the channel when that checkbox is ticked.
+
+## Holding before sending
+
+Normally each copy goes to your channel straight away. If you'd rather have a moment to catch a copy you didn't mean to share, tick "Hold before sending" and choose how many seconds to wait, from 1 to 30 (5 to begin with). While a copy waits, the preview shows it with "Sending in 5 s…" counting down and an Undo button next to it. Pressing Undo, or the Esc key, drops that copy: nothing reaches Are.na. Each copy waits on its own, so copying twice in a row holds both and Undo takes back the latest. Stopping listening drops whatever is still waiting and says so under the preview.
+
+The hold is off unless you turn it on. Like the timer, it's remembered along with the channel when "Remember token and channel on this computer" is ticked. Text that looks like a secret is held back before any of this, so it never waits to be sent.
+
 ## Build
 
 `go build` automatically detects your current operating system and architecture to build for that target by default. However, Go also supports cross-compilation, allowing you to build for different platforms by setting the `GOOS` and `GOARCH` environment variables.
@@ -63,6 +84,8 @@ GOOS=darwin GOARCH=amd64 go build -o ctrl2arena
 ```
 
 You can see all supported target combinations with: `go tool dist list`
+
+The About dialog shows the version the app was built with. Releases take it from the git tag; for your own builds, pass it with `-ldflags "-X main.version=2.1.0"` (any text works). Without the flag the dialog says "Development build".
 
 ### Publishing a release
 
@@ -85,6 +108,8 @@ I like to read and collect information in my Are.na from books and stuff. I also
 ## Collaboration
 
 Please, feel free to fork and enhance the current code so it becomes easier and beautiful to use!
+
+To report a problem or suggest something, [open an issue](https://github.com/animanoir/CtrlC_2_Are.na/issues). The **About** button in the app's bottom-right corner links there too.
 
 ![Are.na logo](https://d2w9rnfcy7mm78.cloudfront.net/9485135/original_10647a43631b7746e4a0821772aefa41.png?1605218631?bc=0)
 ![Go Gopher in a biplane](https://go.dev/images/gophers/biplane.svg)
